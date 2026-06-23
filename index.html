@@ -39,8 +39,10 @@
   </div>
 </nav>
 
-<!-- ── PAGE LAYOUT ── -->
-<div class="page">
+<!-- ════════════════════════════════════════════════════ -->
+<!--  PAGE 1 : ACCUEIL / GRILLE                            -->
+<!-- ════════════════════════════════════════════════════ -->
+<div class="page" id="homePage">
 
   <!-- SIDEBAR -->
   <aside class="sidebar">
@@ -95,9 +97,15 @@
   </main>
 </div>
 
-<!-- ── MODAL PLAYER ── -->
-<div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
-  <div class="modal" id="modalEl">
+<!-- ════════════════════════════════════════════════════ -->
+<!--  PAGE 2 : LECTURE VIDÉO (page complète, pas un modal) -->
+<!-- ════════════════════════════════════════════════════ -->
+<div class="page video-page" id="videoPage" style="display:none">
+
+  <!-- COLONNE PRINCIPALE : player + infos -->
+  <div class="vp-main">
+
+    <button class="vp-back" onclick="goBack()">← Retour</button>
 
     <!-- Player -->
     <div class="player-area">
@@ -115,25 +123,41 @@
       </div>
     </div>
 
-    <!-- Info -->
-    <div class="modal-body">
-      <button class="modal-close" onclick="closeModal()">✕</button>
-      <div class="modal-channel" id="modalChannel"></div>
-      <div class="modal-title" id="modalTitle"></div>
-      <div class="modal-meta" id="modalMeta"></div>
-      <div class="stats-bar">
-        <button class="like-btn" id="likeBtn" onclick="toggleLike()">👍 <span id="likeCount">0</span></button>
-        <button class="dislike-btn">👎 <span id="dislikeCount">0</span></button>
-        <span class="watch-count-badge" id="watchCountBadge">Premier visionnage</span>
-        <button class="save-btn">🔖 Sauvegarder</button>
+    <!-- Infos sous le player -->
+    <div class="vp-info">
+      <div class="vp-title" id="vpTitle"></div>
+
+      <div class="vp-row">
+        <div class="vp-channel-block">
+          <div class="vp-channel-avatar" id="vpChannelAvatar"></div>
+          <div>
+            <div class="modal-channel" id="vpChannel"></div>
+            <div class="vp-meta" id="vpMeta"></div>
+          </div>
+        </div>
+
+        <div class="stats-bar">
+          <button class="like-btn" id="vpLikeBtn" onclick="toggleLike()">👍 <span id="vpLikeCount">0</span></button>
+          <button class="dislike-btn">👎 <span id="vpDislikeCount">0</span></button>
+          <span class="watch-count-badge" id="vpWatchBadge">Premier visionnage</span>
+          <button class="save-btn">🔖 Sauvegarder</button>
+        </div>
       </div>
+
       <div class="modal-divider"></div>
-      <div id="modalContent">
+      <div id="vpContent">
         <div class="loading-text"><span class="spinner"></span>Chargement...</div>
       </div>
     </div>
 
   </div>
+
+  <!-- COLONNE LATÉRALE : vidéos liées (comme un vrai site de streaming) -->
+  <aside class="vp-related">
+    <div class="sidebar-title">À regarder ensuite</div>
+    <div class="related-list" id="vpRelated"></div>
+  </aside>
+
 </div>
 
 <!-- ── TOAST ── -->
