@@ -502,4 +502,58 @@ function startPlayer(dur) {
   }, 1000);
 }
 
-function stopPlayer() { clearInterval(pl
+function stopPlayer() { clearInterval(playerInterval); playerInterval = null; }
+
+function togglePlay() {
+  isPlaying = !isPlaying;
+  document.getElementById('playPauseBtn').textContent = isPlaying ? '⏸' : '▶';
+}
+
+function seekProgress(e) {
+  const pct = e.offsetX / e.currentTarget.offsetWidth;
+  playerSeconds = Math.floor(pct * playerDuration);
+  updatePlayerUI();
+}
+
+function updatePlayerUI() {
+  const pct = playerDuration ? (playerSeconds / playerDuration * 100) : 0;
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('timeDisplay').textContent = `${fmtDuration(playerSeconds)} / ${fmtDuration(playerDuration)}`;
+}
+
+function toggleLike() {
+  document.getElementById('likeBtn').classList.toggle('liked');
+  showToast('👍 Ajouté à vos préférences');
+}
+
+// ── TOAST ──────────────────────────────────────────────
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ── INIT ───────────────────────────────────────────────
+async function init() {
+  allCards = buildPool();
+
+  // Sidebar history count
+  const histCount = Object.keys(cache.history).length;
+  const histBadge = document.getElementById('histBadge');
+  if (histBadge && histCount > 0) histBadge.textContent = histCount;
+
+  await showHome();
+
+  // Pré-fetch tendances en background
+  fetchTrending().then(cards => { if (cards) trendingCards = cards; });
+
+  document.getElementById('searchInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') searchWiki();
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeModal();
+  });
+}
+
+document.addEventListener('DOMContentLoaded', init);
