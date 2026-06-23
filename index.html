@@ -1,1 +1,1706 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WikiHub - Free Knowledge Videos</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap');
 
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --orange: #FF9000;
+    --orange-dark: #cc7300;
+    --bg: #0d0d0d;
+    --card: #1a1a1a;
+    --card-hover: #242424;
+    --border: #2a2a2a;
+    --text: #e0e0e0;
+    --text-dim: #888;
+    --text-dimmer: #555;
+  }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* HEADER */
+  header {
+    background: #111;
+    border-bottom: 1px solid var(--border);
+    padding: 0 16px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .header-inner {
+    max-width: 1400px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    height: 56px;
+  }
+  .logo {
+    font-size: 22px;
+    font-weight: 900;
+    letter-spacing: -0.5px;
+    flex-shrink: 0;
+  }
+  .logo span {
+    background: var(--orange);
+    color: #000;
+    padding: 2px 7px;
+    border-radius: 4px;
+  }
+  .search-bar {
+    flex: 1;
+    max-width: 500px;
+    display: flex;
+    gap: 0;
+  }
+  .search-bar input {
+    flex: 1;
+    padding: 8px 14px;
+    background: #222;
+    border: 1px solid var(--border);
+    border-right: none;
+    border-radius: 4px 0 0 4px;
+    color: var(--text);
+    font-size: 14px;
+    font-family: inherit;
+    outline: none;
+  }
+  .search-bar input:focus { border-color: var(--orange); }
+  .search-bar button {
+    padding: 8px 16px;
+    background: var(--orange);
+    border: none;
+    border-radius: 0 4px 4px 0;
+    cursor: pointer;
+    font-size: 16px;
+  }
+  .header-actions {
+    display: flex;
+    gap: 10px;
+    margin-left: auto;
+  }
+  .btn-outline {
+    padding: 6px 14px;
+    border: 1px solid var(--orange);
+    background: transparent;
+    color: var(--orange);
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    font-family: inherit;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .btn-fill {
+    padding: 6px 14px;
+    background: var(--orange);
+    border: none;
+    color: #000;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    font-family: inherit;
+    font-weight: 700;
+  }
+
+  /* NAV CATEGORIES */
+  .cat-nav {
+    background: #161616;
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .cat-nav::-webkit-scrollbar { display: none; }
+  .cat-nav-inner {
+    max-width: 1400px;
+    margin: 0 auto;
+    display: flex;
+    padding: 0 16px;
+    gap: 4px;
+  }
+  .cat-btn {
+    padding: 10px 16px;
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    font-size: 13px;
+    font-family: inherit;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    border-bottom: 2px solid transparent;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .cat-btn:hover, .cat-btn.active {
+    color: var(--orange);
+    border-bottom-color: var(--orange);
+  }
+
+  /* LAYOUT */
+  .page {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 16px;
+    display: flex;
+    gap: 20px;
+  }
+
+  /* SIDEBAR */
+  .sidebar {
+    width: 200px;
+    flex-shrink: 0;
+  }
+  .sidebar-section { margin-bottom: 20px; }
+  .sidebar-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-dimmer);
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+  .sidebar-link {
+    display: block;
+    padding: 5px 0;
+    color: var(--text-dim);
+    font-size: 13px;
+    cursor: pointer;
+    transition: color 0.15s;
+  }
+  .sidebar-link:hover { color: var(--orange); }
+  .sidebar-link.active { color: var(--orange); font-weight: 600; }
+
+  /* MAIN */
+  .main { flex: 1; min-width: 0; }
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .section-title {
+    font-size: 18px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-title::before {
+    content: '';
+    display: inline-block;
+    width: 4px;
+    height: 18px;
+    background: var(--orange);
+    border-radius: 2px;
+  }
+  .sort-options { display: flex; gap: 6px; }
+  .sort-btn {
+    padding: 5px 12px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    border-radius: 20px;
+    font-size: 12px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s;
+  }
+  .sort-btn.active, .sort-btn:hover {
+    background: var(--orange);
+    color: #000;
+    border-color: var(--orange);
+    font-weight: 600;
+  }
+
+  /* VIDEO GRID */
+  .video-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 16px;
+    margin-bottom: 30px;
+  }
+  .video-card {
+    cursor: pointer;
+    border-radius: 6px;
+    overflow: hidden;
+    background: var(--card);
+    border: 1px solid transparent;
+    transition: border-color 0.15s, transform 0.15s;
+  }
+  .video-card:hover {
+    border-color: var(--orange);
+    transform: translateY(-2px);
+  }
+  .thumbnail {
+    position: relative;
+    aspect-ratio: 16/9;
+    overflow: hidden;
+  }
+  .thumb-bg {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 40px;
+    font-weight: 900;
+    letter-spacing: -2px;
+    user-select: none;
+    transition: transform 0.3s;
+  }
+  .video-card:hover .thumb-bg { transform: scale(1.05); }
+  .thumb-duration {
+    position: absolute;
+    bottom: 6px;
+    right: 6px;
+    background: rgba(0,0,0,0.85);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 3px;
+  }
+  .thumb-hd {
+    position: absolute;
+    bottom: 6px;
+    left: 6px;
+    background: var(--orange);
+    color: #000;
+    font-size: 10px;
+    font-weight: 800;
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+  .thumb-play {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.15s;
+    background: rgba(0,0,0,0.3);
+  }
+  .video-card:hover .thumb-play { opacity: 1; }
+  .play-icon {
+    width: 44px;
+    height: 44px;
+    background: rgba(255,144,0,0.9);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+  }
+  .card-info { padding: 10px; }
+  .card-title {
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.4;
+    margin-bottom: 5px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .card-meta {
+    display: flex;
+    gap: 8px;
+    font-size: 11px;
+    color: var(--text-dimmer);
+  }
+  .card-channel {
+    color: var(--orange);
+    font-size: 12px;
+    margin-bottom: 3px;
+    font-weight: 500;
+  }
+
+  /* LOAD MORE */
+  .load-more {
+    text-align: center;
+    padding: 20px 0;
+  }
+  .btn-load {
+    padding: 12px 40px;
+    background: var(--orange);
+    border: none;
+    color: #000;
+    font-weight: 700;
+    font-size: 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.15s;
+  }
+  .btn-load:hover { background: var(--orange-dark); }
+
+  /* MODAL PLAYER */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.95);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    width: 90%;
+    max-width: 900px;
+    max-height: 90vh;
+    background: #111;
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--border);
+  }
+  .player-area {
+    background: #000;
+    aspect-ratio: 16/9;
+    position: relative;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+  .player-thumb {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 80px;
+    font-weight: 900;
+  }
+  .player-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(transparent, rgba(0,0,0,0.9));
+    padding: 20px 16px 10px;
+  }
+  .progress-track {
+    height: 4px;
+    background: rgba(255,255,255,0.2);
+    border-radius: 2px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    position: relative;
+  }
+  .progress-fill {
+    height: 100%;
+    background: var(--orange);
+    border-radius: 2px;
+    width: 0%;
+    transition: width 0.5s linear;
+    position: relative;
+  }
+  .progress-fill::after {
+    content: '';
+    position: absolute;
+    right: -5px;
+    top: -3px;
+    width: 10px;
+    height: 10px;
+    background: #fff;
+    border-radius: 50%;
+    opacity: 0;
+  }
+  .progress-track:hover .progress-fill::after { opacity: 1; }
+  .player-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .ctrl-btn {
+    background: none;
+    border: none;
+    color: #fff;
+    cursor: pointer;
+    font-size: 16px;
+    padding: 4px;
+    opacity: 0.8;
+    transition: opacity 0.15s;
+  }
+  .ctrl-btn:hover { opacity: 1; }
+  .time-display {
+    font-size: 12px;
+    color: #fff;
+    font-weight: 500;
+  }
+  .ctrl-spacer { flex: 1; }
+  .vol-icon { font-size: 16px; }
+
+  .modal-body {
+    padding: 16px 20px;
+    overflow-y: auto;
+    flex: 1;
+  }
+  .modal-close {
+    float: right;
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font-size: 22px;
+    cursor: pointer;
+    margin-top: -4px;
+  }
+  .modal-close:hover { color: #fff; }
+  .modal-title {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 6px;
+    padding-right: 30px;
+    line-height: 1.3;
+  }
+  .modal-meta {
+    display: flex;
+    gap: 16px;
+    font-size: 12px;
+    color: var(--text-dimmer);
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+  .modal-channel {
+    color: var(--orange);
+    font-weight: 600;
+    font-size: 13px;
+  }
+  .modal-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 12px 0;
+  }
+  .modal-extract {
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--text);
+  }
+  .modal-extract p { margin-bottom: 12px; }
+  .wiki-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+    padding: 8px 16px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text);
+    font-size: 13px;
+    text-decoration: none;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .wiki-link:hover { border-color: var(--orange); color: var(--orange); }
+  .loading-text {
+    color: var(--text-dimmer);
+    font-size: 14px;
+    text-align: center;
+    padding: 30px;
+  }
+  .spinner {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--border);
+    border-top-color: var(--orange);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    vertical-align: middle;
+    margin-right: 8px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* TAGS */
+  .tags-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 12px;
+  }
+  .tag {
+    padding: 3px 10px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    font-size: 11px;
+    color: var(--text-dim);
+    cursor: pointer;
+  }
+  .tag:hover { border-color: var(--orange); color: var(--orange); }
+
+  /* STATS BAR */
+  .stats-bar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 0;
+  }
+  .like-btn, .dislike-btn {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s;
+  }
+  .like-btn:hover { border-color: #4caf50; color: #4caf50; }
+  .dislike-btn:hover { border-color: #f44336; color: #f44336; }
+  .like-btn.liked { background: #4caf5022; border-color: #4caf50; color: #4caf50; }
+  .save-btn {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font-size: 13px;
+    cursor: pointer;
+    font-family: inherit;
+    margin-left: auto;
+  }
+  .save-btn:hover { color: var(--orange); }
+
+  @media (max-width: 768px) {
+    .sidebar { display: none; }
+    .video-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .header-actions { display: none; }
+    .search-bar { max-width: none; }
+    .modal { width: 100%; max-width: 100%; max-height: 100%; border-radius: 0; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="logo">Wiki<span>Hub</span></div>
+    <div class="search-bar">
+      <input type="text" id="searchInput" placeholder="Rechercher des articles..." />
+      <button onclick="searchWiki()">🔍</button>
+    </div>
+    <div class="header-actions">
+      <button class="btn-outline">Se connecter</button>
+      <button class="btn-fill">S'inscrire</button>
+    </div>
+  </div>
+</header>
+
+<nav class="cat-nav">
+  <div class="cat-nav-inner" id="catNav">
+    <button class="cat-btn active" onclick="filterCat(this,'')">Recommandé</button>
+    <button class="cat-btn" onclick="filterCat(this,'Science')">Science</button>
+    <button class="cat-btn" onclick="filterCat(this,'Histoire')">Histoire</button>
+    <button class="cat-btn" onclick="filterCat(this,'Géographie')">Géographie</button>
+    <button class="cat-btn" onclick="filterCat(this,'Arts')">Arts & Culture</button>
+    <button class="cat-btn" onclick="filterCat(this,'Technologie')">Technologie</button>
+    <button class="cat-btn" onclick="filterCat(this,'Sport')">Sport</button>
+    <button class="cat-btn" onclick="filterCat(this,'Politique')">Politique</button>
+    <button class="cat-btn" onclick="filterCat(this,'Nature')">Nature</button>
+    <button class="cat-btn" onclick="filterCat(this,'Philosophie')">Philosophie</button>
+  </div>
+</nav>
+
+<div class="page">
+  <aside class="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-title">Navigation</div>
+      <span class="sidebar-link active" onclick="sideFilter(this,'')">🏠 Accueil</span>
+      <span class="sidebar-link" onclick="sideFilter(this,'trending')">🔥 Tendances</span>
+      <span class="sidebar-link" onclick="sideFilter(this,'new')">🆕 Nouveautés</span>
+      <span class="sidebar-link" onclick="sideFilter(this,'top')">⭐ Top Rated</span>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-title">Catégories</div>
+      <span class="sidebar-link" onclick="sideFilter(this,'Science')">⚗️ Science</span>
+      <span class="sidebar-link" onclick="sideFilter(this,'Histoire')">🏛️ Histoire</span>
+      <span class="sidebar-link" onclick="sideFilter(this,'Géographie')">🌍 Géographie</span>
+      <span class="sidebar-link" onclick="sideFilter(this,'Arts')">🎨 Arts</span>
+      <span class="sidebar-link" onclick="sideFilter(this,'Technologie')">💻 Technologie</span>
+      <span class="sidebar-link" onclick="sideFilter(this,'Sport')">⚽ Sport</span>
+      <span class="sidebar-link" onclick="sideFilter(this,'Philosophie')">🧠 Philosophie</span>
+      <span class="sidebar-link" onclick="sideFilter(this,'Nature')">🌿 Nature</span>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="section-header">
+      <div class="section-title" id="sectionTitle">Articles populaires</div>
+      <div class="sort-options">
+        <button class="sort-btn active" onclick="sortBy(this,'views')">Vues</button>
+        <button class="sort-btn" onclick="sortBy(this,'recent')">Récent</button>
+        <button class="sort-btn" onclick="sortBy(this,'duration')">Durée</button>
+      </div>
+    </div>
+    <div class="video-grid" id="videoGrid">
+      <!-- Cards injected by JS -->
+    </div>
+    <div class="load-more">
+      <button class="btn-load" onclick="loadMore()">Charger plus d'articles</button>
+    </div>
+  </main>
+</div>
+
+<!-- MODAL PLAYER -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+  <div class="modal" id="modalEl">
+    <div class="player-area">
+      <div class="player-thumb" id="playerThumb"></div>
+      <div class="player-bar">
+        <div class="progress-track" onclick="seekProgress(event)">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <div class="player-controls">
+          <button class="ctrl-btn" id="playPauseBtn" onclick="togglePlay()">⏸</button>
+          <button class="ctrl-btn" onclick="">⏭</button>
+          <span class="time-display" id="timeDisplay">0:00 / 0:00</span>
+          <div class="ctrl-spacer"></div>
+          <button class="ctrl-btn">🔊</button>
+          <button class="ctrl-btn" onclick="openWikiDirect()">🌐</button>
+          <button class="ctrl-btn">⛶</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-body">
+      <button class="modal-close" onclick="closeModal()">✕</button>
+      <div class="modal-channel" id="modalChannel"></div>
+      <div class="modal-title" id="modalTitle"></div>
+      <div class="modal-meta" id="modalMeta"></div>
+      <div class="stats-bar">
+        <button class="like-btn" id="likeBtn" onclick="toggleLike()">👍 <span id="likeCount">0</span></button>
+        <button class="dislike-btn">👎 <span id="dislikeCount">0</span></button>
+        <button class="save-btn">🔖 Sauvegarder</button>
+      </div>
+      <div class="modal-divider"></div>
+      <div id="modalContent"><div class="loading-text"><span class="spinner"></span>Chargement de l'article...</div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── DATA ───────────────────────────────────────────────
+const PALETTES = [
+  ['#1a1a2e','#e94560'], ['#0f3460','#16213e'], ['#533483','#e8d5b7'],
+  ['#2d6a4f','#b7e4c7'], ['#7b2d8b','#e040fb'], ['#1565c0','#4fc3f7'],
+  ['#bf360c','#ffab40'], ['#1b5e20','#a5d6a7'], ['#4a148c','#ce93d8'],
+  ['#006064','#80deea'], ['#37474f','#eceff1'], ['#e65100','#fff3e0'],
+  ['#880e4f','#f48fb1'], ['#1a237e','#9fa8da'], ['#33691e','#dcedc8'],
+];
+const EMOJIS = ['🔬','🌍','⚗️','🏛️','🎨','💡','⚽','🧬','🌌','📡','🗺️','🎭','🧠','⚔️','🌊','🦋','🏔️','🔭','🎵','🌿'];
+const CHANNELS = ['WikiStar','KnowledgeHub','DocuMaster','InfoPrime','LearnTV','SciChannel','HistoVid','GéoFlux','CultureMax','PhiloStream'];
+const CATEGORIES = ['Science','Histoire','Géographie','Arts','Technologie','Sport','Politique','Nature','Philosophie'];
+
+const WIKI_TOPICS = [
+  'Trou noir','Révolution française','Tour Eiffel','Photosynthèse','Napoléon Bonaparte',
+  'Système solaire','Amazonie','Renaissance italienne','Intelligence artificielle','ADN',
+  'Deuxième Guerre mondiale','Everest','Relativité restreinte','République romaine','Oceanie',
+  'Théorie de l\'évolution','Cathédrale Notre-Dame de Paris','Thermodynamique','Shoah','Aztèques',
+  'Lune','Atlantique','Impressionnisme','Révolution industrielle','Quanta',
+  'Égypte antique','Gravitation','Baroque','Méditerranée','Volcan',
+  'Internet','Troisième République','Versailles','Plancton','Guerre froide',
+  'Philosophie stoïcienne','Jazz','Alphabet','Démocratie','Cerveau humain',
+  'Chine médiévale','Plasma','Galaxie','Carbone','Préhistoire',
+  'Biosphère','Thermodynamique','Lithosphère','Mésopotamie','Lumière',
+];
+
+let cards = [];
+let currentCard = null;
+let playerInterval = null;
+let playerSeconds = 0;
+let playerDuration = 0;
+let isPlaying = true;
+let currentWikiUrl = '';
+
+function randomInt(a, b) { return Math.floor(Math.random() * (b - a + 1)) + a; }
+function fmtDuration(s) {
+  const m = Math.floor(s/60), sec = s%60;
+  return `${m}:${sec.toString().padStart(2,'0')}`;
+}
+function fmtViews(n) {
+  if (n >= 1000000) return (n/1000000).toFixed(1) + 'M vu
+ Une pièce jointe
+  •  Analysé par Gmail
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WikiHub - Free Knowledge Videos</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --orange: #FF9000;
+    --orange-dark: #cc7300;
+    --bg: #0d0d0d;
+    --card: #1a1a1a;
+    --card-hover: #242424;
+    --border: #2a2a2a;
+    --text: #e0e0e0;
+    --text-dim: #888;
+    --text-dimmer: #555;
+  }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* HEADER */
+  header {
+    background: #111;
+    border-bottom: 1px solid var(--border);
+    padding: 0 16px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .header-inner {
+    max-width: 1400px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    height: 56px;
+  }
+  .logo {
+    font-size: 22px;
+    font-weight: 900;
+    letter-spacing: -0.5px;
+    flex-shrink: 0;
+  }
+  .logo span {
+    background: var(--orange);
+    color: #000;
+    padding: 2px 7px;
+    border-radius: 4px;
+  }
+  .search-bar {
+    flex: 1;
+    max-width: 500px;
+    display: flex;
+    gap: 0;
+  }
+  .search-bar input {
+    flex: 1;
+    padding: 8px 14px;
+    background: #222;
+    border: 1px solid var(--border);
+    border-right: none;
+    border-radius: 4px 0 0 4px;
+    color: var(--text);
+    font-size: 14px;
+    font-family: inherit;
+    outline: none;
+  }
+  .search-bar input:focus { border-color: var(--orange); }
+  .search-bar button {
+    padding: 8px 16px;
+    background: var(--orange);
+    border: none;
+    border-radius: 0 4px 4px 0;
+    cursor: pointer;
+    font-size: 16px;
+  }
+  .header-actions {
+    display: flex;
+    gap: 10px;
+    margin-left: auto;
+  }
+  .btn-outline {
+    padding: 6px 14px;
+    border: 1px solid var(--orange);
+    background: transparent;
+    color: var(--orange);
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    font-family: inherit;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .btn-fill {
+    padding: 6px 14px;
+    background: var(--orange);
+    border: none;
+    color: #000;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    font-family: inherit;
+    font-weight: 700;
+  }
+
+  /* NAV CATEGORIES */
+  .cat-nav {
+    background: #161616;
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .cat-nav::-webkit-scrollbar { display: none; }
+  .cat-nav-inner {
+    max-width: 1400px;
+    margin: 0 auto;
+    display: flex;
+    padding: 0 16px;
+    gap: 4px;
+  }
+  .cat-btn {
+    padding: 10px 16px;
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    font-size: 13px;
+    font-family: inherit;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    border-bottom: 2px solid transparent;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .cat-btn:hover, .cat-btn.active {
+    color: var(--orange);
+    border-bottom-color: var(--orange);
+  }
+
+  /* LAYOUT */
+  .page {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 16px;
+    display: flex;
+    gap: 20px;
+  }
+
+  /* SIDEBAR */
+  .sidebar {
+    width: 200px;
+    flex-shrink: 0;
+  }
+  .sidebar-section { margin-bottom: 20px; }
+  .sidebar-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-dimmer);
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+  .sidebar-link {
+    display: block;
+    padding: 5px 0;
+    color: var(--text-dim);
+    font-size: 13px;
+    cursor: pointer;
+    transition: color 0.15s;
+  }
+  .sidebar-link:hover { color: var(--orange); }
+  .sidebar-link.active { color: var(--orange); font-weight: 600; }
+
+  /* MAIN */
+  .main { flex: 1; min-width: 0; }
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .section-title {
+    font-size: 18px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-title::before {
+    content: '';
+    display: inline-block;
+    width: 4px;
+    height: 18px;
+    background: var(--orange);
+    border-radius: 2px;
+  }
+  .sort-options { display: flex; gap: 6px; }
+  .sort-btn {
+    padding: 5px 12px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    border-radius: 20px;
+    font-size: 12px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s;
+  }
+  .sort-btn.active, .sort-btn:hover {
+    background: var(--orange);
+    color: #000;
+    border-color: var(--orange);
+    font-weight: 600;
+  }
+
+  /* VIDEO GRID */
+  .video-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 16px;
+    margin-bottom: 30px;
+  }
+  .video-card {
+    cursor: pointer;
+    border-radius: 6px;
+    overflow: hidden;
+    background: var(--card);
+    border: 1px solid transparent;
+    transition: border-color 0.15s, transform 0.15s;
+  }
+  .video-card:hover {
+    border-color: var(--orange);
+    transform: translateY(-2px);
+  }
+  .thumbnail {
+    position: relative;
+    aspect-ratio: 16/9;
+    overflow: hidden;
+  }
+  .thumb-bg {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 40px;
+    font-weight: 900;
+    letter-spacing: -2px;
+    user-select: none;
+    transition: transform 0.3s;
+  }
+  .video-card:hover .thumb-bg { transform: scale(1.05); }
+  .thumb-duration {
+    position: absolute;
+    bottom: 6px;
+    right: 6px;
+    background: rgba(0,0,0,0.85);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 3px;
+  }
+  .thumb-hd {
+    position: absolute;
+    bottom: 6px;
+    left: 6px;
+    background: var(--orange);
+    color: #000;
+    font-size: 10px;
+    font-weight: 800;
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+  .thumb-play {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.15s;
+    background: rgba(0,0,0,0.3);
+  }
+  .video-card:hover .thumb-play { opacity: 1; }
+  .play-icon {
+    width: 44px;
+    height: 44px;
+    background: rgba(255,144,0,0.9);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+  }
+  .card-info { padding: 10px; }
+  .card-title {
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.4;
+    margin-bottom: 5px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .card-meta {
+    display: flex;
+    gap: 8px;
+    font-size: 11px;
+    color: var(--text-dimmer);
+  }
+  .card-channel {
+    color: var(--orange);
+    font-size: 12px;
+    margin-bottom: 3px;
+    font-weight: 500;
+  }
+
+  /* LOAD MORE */
+  .load-more {
+    text-align: center;
+    padding: 20px 0;
+  }
+  .btn-load {
+    padding: 12px 40px;
+    background: var(--orange);
+    border: none;
+    color: #000;
+    font-weight: 700;
+    font-size: 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.15s;
+  }
+  .btn-load:hover { background: var(--orange-dark); }
+
+  /* MODAL PLAYER */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.95);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    width: 90%;
+    max-width: 900px;
+    max-height: 90vh;
+    background: #111;
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--border);
+  }
+  .player-area {
+    background: #000;
+    aspect-ratio: 16/9;
+    position: relative;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+  .player-thumb {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 80px;
+    font-weight: 900;
+  }
+  .player-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(transparent, rgba(0,0,0,0.9));
+    padding: 20px 16px 10px;
+  }
+  .progress-track {
+    height: 4px;
+    background: rgba(255,255,255,0.2);
+    border-radius: 2px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    position: relative;
+  }
+  .progress-fill {
+    height: 100%;
+    background: var(--orange);
+    border-radius: 2px;
+    width: 0%;
+    transition: width 0.5s linear;
+    position: relative;
+  }
+  .progress-fill::after {
+    content: '';
+    position: absolute;
+    right: -5px;
+    top: -3px;
+    width: 10px;
+    height: 10px;
+    background: #fff;
+    border-radius: 50%;
+    opacity: 0;
+  }
+  .progress-track:hover .progress-fill::after { opacity: 1; }
+  .player-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .ctrl-btn {
+    background: none;
+    border: none;
+    color: #fff;
+    cursor: pointer;
+    font-size: 16px;
+    padding: 4px;
+    opacity: 0.8;
+    transition: opacity 0.15s;
+  }
+  .ctrl-btn:hover { opacity: 1; }
+  .time-display {
+    font-size: 12px;
+    color: #fff;
+    font-weight: 500;
+  }
+  .ctrl-spacer { flex: 1; }
+  .vol-icon { font-size: 16px; }
+
+  .modal-body {
+    padding: 16px 20px;
+    overflow-y: auto;
+    flex: 1;
+  }
+  .modal-close {
+    float: right;
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font-size: 22px;
+    cursor: pointer;
+    margin-top: -4px;
+  }
+  .modal-close:hover { color: #fff; }
+  .modal-title {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 6px;
+    padding-right: 30px;
+    line-height: 1.3;
+  }
+  .modal-meta {
+    display: flex;
+    gap: 16px;
+    font-size: 12px;
+    color: var(--text-dimmer);
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+  .modal-channel {
+    color: var(--orange);
+    font-weight: 600;
+    font-size: 13px;
+  }
+  .modal-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 12px 0;
+  }
+  .modal-extract {
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--text);
+  }
+  .modal-extract p { margin-bottom: 12px; }
+  .wiki-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+    padding: 8px 16px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text);
+    font-size: 13px;
+    text-decoration: none;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .wiki-link:hover { border-color: var(--orange); color: var(--orange); }
+  .loading-text {
+    color: var(--text-dimmer);
+    font-size: 14px;
+    text-align: center;
+    padding: 30px;
+  }
+  .spinner {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--border);
+    border-top-color: var(--orange);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    vertical-align: middle;
+    margin-right: 8px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* TAGS */
+  .tags-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 12px;
+  }
+  .tag {
+    padding: 3px 10px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    font-size: 11px;
+    color: var(--text-dim);
+    cursor: pointer;
+  }
+  .tag:hover { border-color: var(--orange); color: var(--orange); }
+
+  /* STATS BAR */
+  .stats-bar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 0;
+  }
+  .like-btn, .dislike-btn {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s;
+  }
+  .like-btn:hover { border-color: #4caf50; color: #4caf50; }
+  .dislike-btn:hover { border-color: #f44336; color: #f44336; }
+  .like-btn.liked { background: #4caf5022; border-color: #4caf50; color: #4caf50; }
+  .save-btn {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font-size: 13px;
+    cursor: pointer;
+    font-family: inherit;
+    margin-left: auto;
+  }
+  .save-btn:hover { color: var(--orange); }
+
+  @media (max-width: 768px) {
+    .sidebar { display: none; }
+    .video-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .header-actions { display: none; }
+    .search-bar { max-width: none; }
+    .modal { width: 100%; max-width: 100%; max-height: 100%; border-radius: 0; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="logo">Wiki<span>Hub</span></div>
+    <div class="search-bar">
+      <input type="text" id="searchInput" placeholder="Rechercher des articles..." />
+      <button onclick="searchWiki()">🔍</button>
+    </div>
+    <div class="header-actions">
+      <button class="btn-outline">Se connecter</button>
+      <button class="btn-fill">S'inscrire</button>
+    </div>
+  </div>
+</header>
+
+<nav class="cat-nav">
+  <div class="cat-nav-inner" id="catNav">
+    <button class="cat-btn active" onclick="filterCat(this,'')">Recommandé</button>
+    <button class="cat-btn" onclick="filterCat(this,'Science')">Science</button>
+    <button class="cat-btn" onclick="filterCat(this,'Histoire')">Histoire</button>
+    <button class="cat-btn" onclick="filterCat(this,'Géographie')">Géographie</button>
+    <button class="cat-btn" onclick="filterCat(this,'Arts')">Arts & Culture</button>
+    <button class="cat-btn" onclick="filterCat(this,'Technologie')">Technologie</button>
+    <button class="cat-btn" onclick="filterCat(this,'Sport')">Sport</button>
+    <button class="cat-btn" onclick="filterCat(this,'Politique')">Politique</button>
+    <button class="cat-btn" onclick="filterCat(this,'Nature')">Nature</button>
+    <button class="cat-btn" onclick="filterCat(this,'Philosophie')">Philosophie</button>
+  </div>
+</nav>
+
+<div class="page">
+  <aside class="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-title">Navigation</div>
+      <span class="sidebar-link active" onclick="sideFilter(this,'')">🏠 Accueil</span>
+      <span class="sidebar-link" onclick="sideFilter(this,'trending')">🔥 Tendances</span>
+      <span class="sidebar-link" onclick="sideFilter(this,'new')">🆕 Nouveautés</span>
+      <span class="sidebar-link" onclick="sideFilter(this,'top')">⭐ Top Rated</span>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-title">Catégories</div>
+      <span class="sidebar-link" onclick="sideFilter(this,'Science')">⚗️ Science</span>
+      <span class="sidebar-link" onclick="sideFilter(this,'Histoire')">🏛️ Histoire</span>
+      <span class="sidebar-link" onclick="sideFilter(this,'Géographie')">🌍 Géographie</span>
+      <span class="sidebar-link" onclick="sideFilter(this,'Arts')">🎨 Arts</span>
+      <span class="sidebar-link" onclick="sideFilter(this,'Technologie')">💻 Technologie</span>
+      <span class="sidebar-link" onclick="sideFilter(this,'Sport')">⚽ Sport</span>
+      <span class="sidebar-link" onclick="sideFilter(this,'Philosophie')">🧠 Philosophie</span>
+      <span class="sidebar-link" onclick="sideFilter(this,'Nature')">🌿 Nature</span>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="section-header">
+      <div class="section-title" id="sectionTitle">Articles populaires</div>
+      <div class="sort-options">
+        <button class="sort-btn active" onclick="sortBy(this,'views')">Vues</button>
+        <button class="sort-btn" onclick="sortBy(this,'recent')">Récent</button>
+        <button class="sort-btn" onclick="sortBy(this,'duration')">Durée</button>
+      </div>
+    </div>
+    <div class="video-grid" id="videoGrid">
+      <!-- Cards injected by JS -->
+    </div>
+    <div class="load-more">
+      <button class="btn-load" onclick="loadMore()">Charger plus d'articles</button>
+    </div>
+  </main>
+</div>
+
+<!-- MODAL PLAYER -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+  <div class="modal" id="modalEl">
+    <div class="player-area">
+      <div class="player-thumb" id="playerThumb"></div>
+      <div class="player-bar">
+        <div class="progress-track" onclick="seekProgress(event)">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <div class="player-controls">
+          <button class="ctrl-btn" id="playPauseBtn" onclick="togglePlay()">⏸</button>
+          <button class="ctrl-btn" onclick="">⏭</button>
+          <span class="time-display" id="timeDisplay">0:00 / 0:00</span>
+          <div class="ctrl-spacer"></div>
+          <button class="ctrl-btn">🔊</button>
+          <button class="ctrl-btn" onclick="openWikiDirect()">🌐</button>
+          <button class="ctrl-btn">⛶</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-body">
+      <button class="modal-close" onclick="closeModal()">✕</button>
+      <div class="modal-channel" id="modalChannel"></div>
+      <div class="modal-title" id="modalTitle"></div>
+      <div class="modal-meta" id="modalMeta"></div>
+      <div class="stats-bar">
+        <button class="like-btn" id="likeBtn" onclick="toggleLike()">👍 <span id="likeCount">0</span></button>
+        <button class="dislike-btn">👎 <span id="dislikeCount">0</span></button>
+        <button class="save-btn">🔖 Sauvegarder</button>
+      </div>
+      <div class="modal-divider"></div>
+      <div id="modalContent"><div class="loading-text"><span class="spinner"></span>Chargement de l'article...</div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── DATA ───────────────────────────────────────────────
+const PALETTES = [
+  ['#1a1a2e','#e94560'], ['#0f3460','#16213e'], ['#533483','#e8d5b7'],
+  ['#2d6a4f','#b7e4c7'], ['#7b2d8b','#e040fb'], ['#1565c0','#4fc3f7'],
+  ['#bf360c','#ffab40'], ['#1b5e20','#a5d6a7'], ['#4a148c','#ce93d8'],
+  ['#006064','#80deea'], ['#37474f','#eceff1'], ['#e65100','#fff3e0'],
+  ['#880e4f','#f48fb1'], ['#1a237e','#9fa8da'], ['#33691e','#dcedc8'],
+];
+const EMOJIS = ['🔬','🌍','⚗️','🏛️','🎨','💡','⚽','🧬','🌌','📡','🗺️','🎭','🧠','⚔️','🌊','🦋','🏔️','🔭','🎵','🌿'];
+const CHANNELS = ['WikiStar','KnowledgeHub','DocuMaster','InfoPrime','LearnTV','SciChannel','HistoVid','GéoFlux','CultureMax','PhiloStream'];
+const CATEGORIES = ['Science','Histoire','Géographie','Arts','Technologie','Sport','Politique','Nature','Philosophie'];
+
+const WIKI_TOPICS = [
+  'Trou noir','Révolution française','Tour Eiffel','Photosynthèse','Napoléon Bonaparte',
+  'Système solaire','Amazonie','Renaissance italienne','Intelligence artificielle','ADN',
+  'Deuxième Guerre mondiale','Everest','Relativité restreinte','République romaine','Oceanie',
+  'Théorie de l\'évolution','Cathédrale Notre-Dame de Paris','Thermodynamique','Shoah','Aztèques',
+  'Lune','Atlantique','Impressionnisme','Révolution industrielle','Quanta',
+  'Égypte antique','Gravitation','Baroque','Méditerranée','Volcan',
+  'Internet','Troisième République','Versailles','Plancton','Guerre froide',
+  'Philosophie stoïcienne','Jazz','Alphabet','Démocratie','Cerveau humain',
+  'Chine médiévale','Plasma','Galaxie','Carbone','Préhistoire',
+  'Biosphère','Thermodynamique','Lithosphère','Mésopotamie','Lumière',
+];
+
+let cards = [];
+let currentCard = null;
+let playerInterval = null;
+let playerSeconds = 0;
+let playerDuration = 0;
+let isPlaying = true;
+let currentWikiUrl = '';
+
+function randomInt(a, b) { return Math.floor(Math.random() * (b - a + 1)) + a; }
+function fmtDuration(s) {
+  const m = Math.floor(s/60), sec = s%60;
+  return `${m}:${sec.toString().padStart(2,'0')}`;
+}
+function fmtViews(n) {
+  if (n >= 1000000) return (n/1000000).toFixed(1) + 'M vues';
+  if (n >= 1000) return (n/1000).toFixed(0) + 'K vues';
+  return n + ' vues';
+}
+function timeAgo() {
+  const opts = ['Il y a 2h','Il y a 6h','Il y a 1 jour','Il y a 3 jours','Il y a 1 semaine','Il y a 2 semaines','Il y a 1 mois'];
+  return opts[randomInt(0, opts.length-1)];
+}
+
+function makeCard(topic, idx) {
+  const pal = PALETTES[idx % PALETTES.length];
+  const emoji = EMOJIS[idx % EMOJIS.length];
+  const dur = randomInt(4*60, 45*60);
+  const views = randomInt(1200, 2800000);
+  const cat = CATEGORIES[idx % CATEGORIES.length];
+  const channel = CHANNELS[idx % CHANNELS.length];
+  const likes = randomInt(200, 95000);
+  return { topic, emoji, pal, dur, views, cat, channel, likes, ago: timeAgo(), dislikes: randomInt(10, likes/5)|0 };
+}
+
+function buildCards() {
+  return WIKI_TOPICS.map((t, i) => makeCard(t, i));
+}
+
+function renderCard(c, i) {
+  return `
+  <div class="video-card" onclick="openModal(${i})">
+    <div class="thumbnail">
+      <div class="thumb-bg" style="background:linear-gradient(135deg,${c.pal[0]},${c.pal[1]})">
+        ${c.emoji}
+      </div>
+      <div class="thumb-duration">${fmtDuration(c.dur)}</div>
+      <div class="thumb-hd">WIKI</div>
+      <div class="thumb-play"><div class="play-icon">▶</div></div>
+    </div>
+    <div class="card-info">
+      <div class="card-channel">${c.channel}</div>
+      <div class="card-title">${c.topic} – Tout savoir sur ce sujet fascinant</div>
+      <div class="card-meta">
+        <span>${fmtViews(c.views)}</span>
+        <span>·</span>
+        <span>${c.ago}</span>
+        <span>·</span>
+        <span>${c.cat}</span>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderGrid(list) {
+  const grid = document.getElementById('videoGrid');
+  grid.innerHTML = list.map((c,i) => renderCard(c,i)).join('');
+}
+
+// ─── FILTERS ────────────────────────────────────────────
+function filterCat(btn, cat) {
+  document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  applyFilter(cat);
+}
+function sideFilter(el, val) {
+  document.querySelectorAll('.sidebar-link').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  applyFilter(val === 'trending' || val === 'new' || val === 'top' ? '' : val);
+  const titles = { '':'Articles populaires', trending:'🔥 Tendances', new:'🆕 Nouveautés', top:'⭐ Top Rated' };
+  document.getElementById('sectionTitle').textContent = titles[val] || val;
+}
+function applyFilter(cat) {
+  const filtered = cat ? cards.filter(c => c.cat === cat) : cards;
+  renderGrid(filtered);
+}
+function sortBy(btn, mode) {
+  document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  let sorted = [...cards];
+  if (mode === 'views') sorted.sort((a,b) => b.views - a.views);
+  if (mode === 'duration') sorted.sort((a,b) => b.dur - a.dur);
+  if (mode === 'recent') sorted.reverse();
+  renderGrid(sorted);
+}
+function loadMore() {
+  const extra = Array.from({length: 8}, (_,i) => {
+    const t = ['Quantum','Baroque','Atome','Volcan','Fjord','Algèbre','Renaissance','Jazz'][i % 8] + ' ' + randomInt(1,99);
+    return makeCard(t, cards.length + i);
+  });
+  cards = [...cards, ...extra];
+  renderGrid(cards);
+}
+
+// ─── SEARCH ─────────────────────────────────────────────
+async function searchWiki() {
+  const q = document.getElementById('searchInput').value.trim();
+  if (!q) return;
+  document.getElementById('sectionTitle').textContent = `Résultats pour "${q}"`;
+  document.getElementById('videoGrid').innerHTML = `<div class="loading-text"><span class="spinner"></span>Recherche en cours...</div>`;
+  try {
+    const url = `https://fr.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(q)}&srlimit=12&format=json&origin=*`;
+    const res = await fetch(url);
+    const data = await res.json();
+    const results = data.query.search.map((r,i) => makeCard(r.title, i));
+    cards = results;
+    renderGrid(cards);
+  } catch(e) {
+    document.getElementById('videoGrid').innerHTML = `<div class="loading-text">Erreur de recherche 😕</div>`;
+  }
+}
+document.getElementById('searchInput').addEventListener('keydown', e => { if(e.key==='Enter') searchWiki(); });
+
+// ─── MODAL ──────────────────────────────────────────────
+async function openModal(idx) {
+  const c = cards[idx];
+  if (!c) return;
+  currentCard = c;
+  currentWikiUrl = `https://fr.wikipedia.org/wiki/${encodeURIComponent(c.topic)}`;
+
+  document.getElementById('modalOverlay').classList.add('open');
+  document.getElementById('playerThumb').style.background = `linear-gradient(135deg,${c.pal[0]},${c.pal[1]})`;
+  document.getElementById('playerThumb').textContent = c.emoji;
+  document.getElementById('modalChannel').textContent = c.channel;
+  document.getElementById('modalTitle').textContent = c.topic + ' – Tout savoir sur ce sujet fascinant';
+  document.getElementById('modalMeta').innerHTML = `
+    <span>👁 ${fmtViews(c.views)}</span>
+    <span>⏱ ${fmtDuration(c.dur)}</span>
+    <span>🗂 ${c.cat}</span>
+    <span>${c.ago}</span>
+  `;
+  document.getElementById('likeCount').textContent = c.likes.toLocaleString();
+  document.getElementById('dislikeCount').textContent = c.dislikes.toLocaleString();
+  document.getElementById('likeBtn').classList.remove('liked');
+  document.getElementById('modalContent').innerHTML = `<div class="loading-text"><span class="spinner"></span>Chargement de l'article Wikipédia...</div>`;
+
+  startPlayer(c.dur);
+  fetchWikiContent(c.topic);
+}
+
+async function fetchWikiContent(topic) {
+  try {
+    const url = `https://fr.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(topic)}&prop=extracts&exintro=1&exchars=2000&format=json&origin=*`;
+    const res = await fetch(url);
+    const data = await res.json();
+    const pages = data.query.pages;
+    const page = Object.values(pages)[0];
+    const extract = page.extract || '<p>Aucun contenu disponible.</p>';
+
+    document.getElementById('modalContent').innerHTML = `
+      <div class="modal-extract">${extract}</div>
+      <div class="tags-row">
+        ${currentCard.cat ? `<span class="tag">${currentCard.cat}</span>` : ''}
+        <span class="tag">Encyclopédie</span>
+        <span class="tag">Connaissance</span>
+        <span class="tag">Éducation</span>
+        <span class="tag">Wikipedia</span>
+      </div>
+      <br>
+      <a class="wiki-link" onclick="openWikiDirect()">
+        🌐 Lire l'article complet sur Wikipédia
+      </a>
+    `;
+  } catch(e) {
+    document.getElementById('modalContent').innerHTML = `<div class="loading-text">Impossible de charger l'article 😕</div>`;
+  }
+}
+
+function openWikiDirect() { window.open(currentWikiUrl, '_blank'); }
+
+function closeModal(e) {
+  if (e && e.target !== document.getElementById('modalOverlay') && e.type === 'click') return;
+  document.getElementById('modalOverlay').classList.remove('open');
+  stopPlayer();
+}
+
+// ─── PLAYER ─────────────────────────────────────────────
+function startPlayer(dur) {
+  stopPlayer();
+  playerDuration = dur;
+  playerSeconds = 0;
+  isPlaying = true;
+  document.getElementById('playPauseBtn').textContent = '⏸';
+  updatePlayerUI();
+  playerInterval = setInterval(() => {
+    if (!isPlaying) return;
+    playerSeconds = Math.min(playerSeconds + 1, playerDuration);
+    updatePlayerUI();
+    if (playerSeconds >= playerDuration) stopPlayer();
+  }, 1000);
+}
+function stopPlayer() {
+  clearInterval(playerInterval);
+  playerInterval = null;
+}
+function togglePlay() {
+  isPlaying = !isPlaying;
+  document.getElementById('playPauseBtn').textContent = isPlaying ? '⏸' : '▶';
+}
+function seekProgress(e) {
+  const track = e.currentTarget;
+  const pct = e.offsetX / track.offsetWidth;
+  playerSeconds = Math.floor(pct * playerDuration);
+  updatePlayerUI();
+}
+function updatePlayerUI() {
+  const pct = playerDuration ? (playerSeconds / playerDuration * 100) : 0;
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('timeDisplay').textContent = `${fmtDuration(playerSeconds)} / ${fmtDuration(playerDuration)}`;
+}
+
+function toggleLike() {
+  const btn = document.getElementById('likeBtn');
+  btn.classList.toggle('liked');
+}
+
+// ─── INIT ────────────────────────────────────────────────
+cards = buildCards();
+renderGrid(cards);
+</script>
+</body>
+</html>
