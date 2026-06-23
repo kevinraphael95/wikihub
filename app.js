@@ -334,12 +334,12 @@ let searchResults  = [];
 
 // ── VIEW : HOME ────────────────────────────────────────
 function showPageHome() {
-  document.getElementById('homePage').style.display  = 'block';
+  document.getElementById('homePage').style.display  = 'flex';
   document.getElementById('videoPage').style.display = 'none';
 }
 function showPageVideo() {
   document.getElementById('homePage').style.display  = 'none';
-  document.getElementById('videoPage').style.display = 'block';
+  document.getElementById('videoPage').style.display = 'flex';
   window.scrollTo(0, 0);
 }
 
@@ -542,6 +542,9 @@ async function openVideo(encodedId) {
   document.getElementById('vpLikeCount').textContent    = card.likes.toLocaleString();
   document.getElementById('vpDislikeCount').textContent = card.dislikes.toLocaleString();
   document.getElementById('vpLikeBtn').classList.remove('liked');
+
+  const avatar = document.getElementById('vpChannelAvatar');
+  if (avatar) avatar.style.background = `linear-gradient(135deg, ${card.pal[0]}, ${card.pal[1]})`;
 
   const wc = getWatchCount(card.id);
   document.getElementById('vpWatchBadge').textContent = wc > 1 ? `Vu ${wc} fois` : 'Premier visionnage';
