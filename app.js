@@ -28,8 +28,8 @@ const CAT_MAP = {
 };
 
 // ── CACHE / STORAGE ────────────────────────────────────
-const STORAGE_KEY    = 'wikihub_v2';
-const IMG_CACHE_KEY  = 'wikihub_imgcache_v1';
+const STORAGE_KEY   = 'wikihub_v2';
+const IMG_CACHE_KEY = 'wikihub_imgcache_v1';
 
 function loadCache() {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || { history: {}, liked: [] }; }
@@ -37,7 +37,6 @@ function loadCache() {
 }
 function saveCache(c) { localStorage.setItem(STORAGE_KEY, JSON.stringify(c)); }
 
-// Image cache : { [title]: url | null }
 function loadImgCache() {
   try { return JSON.parse(localStorage.getItem(IMG_CACHE_KEY)) || {}; }
   catch { return {}; }
@@ -66,24 +65,13 @@ function getFavoriteCats() {
 }
 
 // ── IMAGE FETCH ─────────────────────────────────────────
-// Seuil largeur minimale considérée "bonne qualité" en px
 const MIN_IMG_W = 200;
 
-/**
- * Tente de récupérer une image pour un article.
- * Ordre :
- *   1. Wikipedia FR pageimages (miniature de l'article)
- *   2. Wikipedia REST API /page/summary/ → originalimage (meilleure résolution)
- *   3. Wikimedia Commons search (recherche par titre)
- *   4. Openverse API (images libres de droits sur le net, sans clé requise)
- * Résultat mis en cache localStorage.
- */
 async function fetchThumb(title) {
-  if (title in imgCache) return imgCache[title]; // cache hit (peut être null)
-
+  if (title in imgCache) return imgCache[title];
   let url = null;
 
-  // ── 1. Wikipedia FR pageimages ──
+  // 1. Wikipedia FR pageimages
   try {
     const api = `https://fr.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(title)}&prop=pageimages&pithumbsize=600&format=json&origin=*`;
     const res  = await fetch(api);
@@ -94,26 +82,21 @@ async function fetchThumb(title) {
     if (src && w >= MIN_IMG_W) url = src;
   } catch {}
 
-  // ── 2. Wikipedia REST API summary → originalimage (souvent meilleure qualité) ──
+  // 2. Wikipedia REST API summary → originalimage
   if (!url) {
     try {
-      // Essai FR d'abord, puis EN si l'article FR n'a pas d'image
       for (const lang of ['fr', 'en']) {
         const api = `https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title.replace(/ /g,'_'))}`;
         const res  = await fetch(api);
         if (!res.ok) continue;
         const data = await res.json();
-        // originalimage > thumbnail (résolution plus haute)
         const img = data.originalimage || data.thumbnail;
-        if (img?.source && (img.width ?? 0) >= MIN_IMG_W) {
-          url = img.source;
-          break;
-        }
+        if (img?.source && (img.width ?? 0) >= MIN_IMG_W) { url = img.source; break; }
       }
     } catch {}
   }
 
-  // ── 3. Wikimedia Commons search si toujours rien ──
+  // 3. Wikimedia Commons search
   if (!url) {
     try {
       const api = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrnamespace=6&gsrsearch=${encodeURIComponent(title)}&gsrlimit=8&prop=imageinfo&iiprop=url|size&iiurlwidth=600&format=json&origin=*`;
@@ -128,57 +111,43 @@ async function fetchThumb(title) {
     } catch {}
   }
 
-  // ── 4. Openverse (Creative Commons, sans clé API) ──
+  // 4. Openverse
   if (!url) {
     try {
-      const query = encodeURIComponent(title);
-      const api   = `https://api.openverse.org/v1/images/?q=${query}&license_type=commercial,modification&page_size=5&mature=false`;
-      const res   = await fetch(api, { headers: { 'Accept': 'application/json' } });
+      const api = `https://api.openverse.org/v1/images/?q=${encodeURIComponent(title)}&license_type=commercial,modification&page_size=5&mature=false`;
+      const res  = await fetch(api, { headers: { 'Accept': 'application/json' } });
       if (res.ok) {
         const data = await res.json();
-        const results = data.results || [];
-        // Prend la première image avec une URL valide et assez large
-        const hit = results.find(r => r.url && (r.width ?? 999) >= MIN_IMG_W);
+        const hit = (data.results || []).find(r => r.url && (r.width ?? 999) >= MIN_IMG_W);
         if (hit) url = hit.url;
       }
     } catch {}
   }
 
-  // Stocke (même si null, pour éviter de re-fetcher)
   imgCache[title] = url;
   saveImgCache(imgCache);
   return url;
 }
 
-/**
- * Injecte l'image dans toutes les cards qui ont data-id=title (async, non-bloquant).
- * Appelé après renderGrid.
- */
 async function injectThumb(title, pal, emoji) {
   const url = await fetchThumb(title);
   const encoded = encodeURIComponent(title);
   document.querySelectorAll(`[data-id="${encoded}"] .thumb-bg`).forEach(el => {
     if (url) {
-      el.style.backgroundImage  = `url(${url})`;
-      el.style.backgroundSize   = 'cover';
+      el.style.backgroundImage   = `url(${url})`;
+      el.style.backgroundSize    = 'cover';
       el.style.backgroundPosition = 'center';
-      el.style.fontSize = '0'; // cache l'emoji
+      el.style.fontSize = '0';
     }
-    // Si pas d'image, le gradient + emoji reste intact
   });
 }
 
-/**
- * Lance les fetchs en batch sur un lot de cards (sans bloquer le rendu).
- */
 function lazyLoadThumbs(cards) {
   cards.forEach(c => {
-    // Skip si déjà en cache (positif ou négatif)
     if (c.id in imgCache) {
       if (imgCache[c.id]) injectThumb(c.id, c.pal, c.emoji);
       return;
     }
-    // Délai léger pour ne pas flood l'API
     setTimeout(() => injectThumb(c.id, c.pal, c.emoji), 0);
   });
 }
@@ -229,14 +198,14 @@ function buildPool() {
 }
 
 // ── RECOMMENDATIONS ────────────────────────────────────
-function getRecommended() {
+function getRecommended(excludeId = null) {
   const favCats = getFavoriteCats();
-  if (!favCats.length) return [];
+  if (!favCats.length) return allCards.slice(0, 20);
   return allCards
-    .filter(c => favCats.includes(c.cat))
+    .filter(c => favCats.includes(c.cat) && c.id !== excludeId)
     .filter(c => !cache.history[c.id] || cache.history[c.id].count < 2)
     .sort((a,b) => favCats.indexOf(a.cat) - favCats.indexOf(b.cat))
-    .slice(0, 12);
+    .slice(0, 20);
 }
 
 function getHistory() {
@@ -285,8 +254,8 @@ function guessCat(title) {
   return Object.keys(CAT_MAP)[randomInt(0, Object.keys(CAT_MAP).length-1)];
 }
 
-// ── RENDER ─────────────────────────────────────────────
-function cardHTML(c) {
+// ── RENDER CARD ────────────────────────────────────────
+function cardHTML(c, compact = false) {
   const watchCount  = getWatchCount(c.id);
   const watchedBadge = watchCount > 0 ? `<div class="watched-overlay">VU${watchCount > 1 ? ' '+watchCount+'x' : ''}</div>` : '';
   const rankBadge   = c.rank ? `<div class="thumb-rank">#${c.rank}</div>` : '';
@@ -294,14 +263,29 @@ function cardHTML(c) {
     ? `<span class="card-views-real">👁 ${fmtViews(c.realViews)}</span>`
     : `<span>${fmtViews(c.views)}</span>`;
 
-  // L'image sera injectée en async; on part sur gradient + emoji
   const cachedImg = imgCache[c.id];
   const thumbStyle = cachedImg
     ? `background:url(${cachedImg}) center/cover; font-size:0`
     : `background:linear-gradient(135deg,${c.pal[0]},${c.pal[1]})`;
 
+  if (compact) {
+    // Layout horizontal pour la sidebar recommandés
+    return `
+    <div class="video-card-compact" data-id="${encodeURIComponent(c.id)}" onclick="openVideo('${encodeURIComponent(c.id)}')">
+      <div class="compact-thumb">
+        <div class="thumb-bg" style="${thumbStyle}">${cachedImg ? '' : c.emoji}</div>
+        <div class="thumb-duration">${fmtDuration(c.dur)}</div>
+      </div>
+      <div class="compact-info">
+        <div class="compact-title">${c.title}</div>
+        <div class="compact-channel">${c.channel}</div>
+        <div class="compact-meta">${viewsLabel} · ${c.ago}</div>
+      </div>
+    </div>`;
+  }
+
   return `
-  <div class="video-card" data-id="${encodeURIComponent(c.id)}" onclick="openModal('${encodeURIComponent(c.id)}')">
+  <div class="video-card" data-id="${encodeURIComponent(c.id)}" onclick="openVideo('${encodeURIComponent(c.id)}')">
     ${watchedBadge}
     <div class="thumbnail">
       <div class="thumb-bg" style="${thumbStyle}">${cachedImg ? '' : c.emoji}</div>
@@ -331,8 +315,14 @@ function renderGrid(cards, containerId = 'videoGrid') {
     el.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="big">🤔</div><p>Aucun article trouvé</p></div>`;
     return;
   }
-  el.innerHTML = cards.map(cardHTML).join('');
-  // Lazy-load les images pour les cards sans cache
+  el.innerHTML = cards.map(c => cardHTML(c, false)).join('');
+  lazyLoadThumbs(cards.filter(c => !(c.id in imgCache)));
+}
+
+function renderCompactList(cards, containerId) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  el.innerHTML = cards.map(c => cardHTML(c, true)).join('');
   lazyLoadThumbs(cards.filter(c => !(c.id in imgCache)));
 }
 
@@ -342,14 +332,26 @@ let currentCat  = '';
 let trendingCards  = [];
 let searchResults  = [];
 
+// ── VIEW : HOME ────────────────────────────────────────
+function showPageHome() {
+  document.getElementById('homePage').style.display  = 'block';
+  document.getElementById('videoPage').style.display = 'none';
+}
+function showPageVideo() {
+  document.getElementById('homePage').style.display  = 'none';
+  document.getElementById('videoPage').style.display = 'block';
+  window.scrollTo(0, 0);
+}
+
 async function showHome() {
   currentView = 'home';
+  showPageHome();
   document.getElementById('sectionTitle').textContent = 'Articles populaires';
   updateSidebarActive('nav-home');
 
   const reco = getRecommended();
   const recoSection = document.getElementById('recoSection');
-  if (reco.length > 0) {
+  if (reco.length > 0 && getFavoriteCats().length > 0) {
     recoSection.style.display = 'block';
     renderGrid(reco, 'recoGrid');
   } else {
@@ -362,6 +364,7 @@ async function showHome() {
 
 async function showTrending() {
   currentView = 'trending';
+  showPageHome();
   document.getElementById('sectionTitle').textContent = '🔥 Tendances Wikipedia';
   updateSidebarActive('nav-trending');
   document.getElementById('recoSection').style.display = 'none';
@@ -382,6 +385,7 @@ async function showTrending() {
 
 function showHistory() {
   currentView = 'history';
+  showPageHome();
   document.getElementById('sectionTitle').textContent = '📺 Historique';
   updateSidebarActive('nav-history');
   document.getElementById('recoSection').style.display = 'none';
@@ -397,6 +401,7 @@ function showHistory() {
 
 function showReco() {
   currentView = 'reco';
+  showPageHome();
   document.getElementById('sectionTitle').textContent = '⭐ Recommandés pour vous';
   updateSidebarActive('nav-reco');
   document.getElementById('recoSection').style.display = 'none';
@@ -417,6 +422,7 @@ function filterCat(btn, cat) {
 
   currentView = 'cat';
   currentCat  = cat;
+  showPageHome();
   document.getElementById('sectionTitle').textContent = cat;
   document.getElementById('recoSection').style.display = 'none';
   document.getElementById('loadMoreBtn').style.display = 'block';
@@ -442,8 +448,7 @@ function loadMore() {
   const next = source.slice(loadOffset, loadOffset + 12);
   if (!next.length) { showToast('Plus d\'articles disponibles'); return; }
   const grid = document.getElementById('videoGrid');
-  const html = next.map(cardHTML).join('');
-  grid.innerHTML += html;
+  grid.innerHTML += next.map(c => cardHTML(c, false)).join('');
   lazyLoadThumbs(next.filter(c => !(c.id in imgCache)));
   loadOffset += 12;
 }
@@ -453,6 +458,7 @@ async function searchWiki() {
   const q = document.getElementById('searchInput').value.trim();
   if (!q) return;
   currentView = 'search';
+  showPageHome();
 
   document.getElementById('sectionTitle').textContent = `Résultats pour "${q}"`;
   document.getElementById('recoSection').style.display = 'none';
@@ -474,12 +480,12 @@ async function searchWiki() {
   }
 }
 
-// ── MODAL / PLAYER ─────────────────────────────────────
-let currentCard   = null;
+// ── VIDEO PAGE ─────────────────────────────────────────
+let currentCard    = null;
 let playerInterval = null;
-let playerSeconds = 0;
+let playerSeconds  = 0;
 let playerDuration = 0;
-let isPlaying     = true;
+let isPlaying      = true;
 
 function getCardById(id) {
   return allCards.find(c => c.id === id)
@@ -488,7 +494,7 @@ function getCardById(id) {
     || null;
 }
 
-async function openModal(encodedId) {
+async function openVideo(encodedId) {
   const id = decodeURIComponent(encodedId);
   let card = getCardById(id);
   if (!card) {
@@ -498,64 +504,65 @@ async function openModal(encodedId) {
 
   currentCard = card;
   recordView(card.id, card.cat);
-  updateWatchBadge(card.id);
+  updateWatchBadges(card.id);
 
-  document.getElementById('modalOverlay').classList.add('open');
+  showPageVideo();
 
-  // Player thumb : image si dispo, sinon gradient
+  // ── Player thumb ──
   const playerThumb = document.getElementById('playerThumb');
   const cachedImg = imgCache[card.id];
-  if (cachedImg) {
-    playerThumb.style.cssText = `width:100%;height:100%;background:url(${cachedImg}) center/cover;`;
-    playerThumb.textContent = '';
-  } else {
+
+  function applyThumbImg(url) {
+    playerThumb.style.cssText = `width:100%;height:100%;background:url(${url}) center/cover;`;
+    playerThumb.innerHTML = '';
+  }
+  function applyThumbGradient() {
     playerThumb.style.cssText = `width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:80px;background:linear-gradient(135deg,${card.pal[0]},${card.pal[1]})`;
-    playerThumb.textContent = card.emoji;
-    // Fetch image et l'injecte si elle arrive
+    playerThumb.innerHTML = `<span>${card.emoji}</span>`;
+  }
+
+  if (cachedImg) {
+    applyThumbImg(cachedImg);
+  } else {
+    applyThumbGradient();
     fetchThumb(card.id).then(url => {
-      if (url && currentCard?.id === card.id) {
-        playerThumb.style.cssText = `width:100%;height:100%;background:url(${url}) center/cover;`;
-        playerThumb.textContent = '';
-      }
+      if (url && currentCard?.id === card.id) applyThumbImg(url);
     });
   }
 
-  document.getElementById('modalChannel').textContent = card.channel;
-  document.getElementById('modalTitle').textContent   = card.title;
-  document.getElementById('modalMeta').innerHTML = `
+  // ── Infos ──
+  document.getElementById('vpChannel').textContent = card.channel;
+  document.getElementById('vpTitle').textContent   = card.title;
+  document.getElementById('vpMeta').innerHTML = `
     <span>👁 ${fmtViews(card.realViews ?? card.views)}</span>
     <span>⏱ ${fmtDuration(card.dur)}</span>
     <span>🗂 ${card.cat}</span>
     <span>${card.ago}</span>
   `;
-  document.getElementById('likeCount').textContent    = card.likes.toLocaleString();
-  document.getElementById('dislikeCount').textContent = card.dislikes.toLocaleString();
-  document.getElementById('likeBtn').classList.remove('liked');
+  document.getElementById('vpLikeCount').textContent    = card.likes.toLocaleString();
+  document.getElementById('vpDislikeCount').textContent = card.dislikes.toLocaleString();
+  document.getElementById('vpLikeBtn').classList.remove('liked');
 
   const wc = getWatchCount(card.id);
-  document.getElementById('watchCountBadge').textContent = wc > 1 ? `Vu ${wc} fois` : 'Premier visionnage';
-  document.getElementById('modalContent').innerHTML = `<div class="loading-text"><span class="spinner"></span>Chargement de l'article...</div>`;
+  document.getElementById('vpWatchBadge').textContent = wc > 1 ? `Vu ${wc} fois` : 'Premier visionnage';
+  document.getElementById('vpContent').innerHTML = `<div class="loading-text"><span class="spinner"></span>Chargement de l'article...</div>`;
+
+  // ── Recommandés sidebar ──
+  const related = getRecommended(card.id).slice(0, 20);
+  renderCompactList(related, 'vpRelated');
 
   startPlayer(card.dur);
   await fetchWikiContent(card.title);
-
-  if (currentView === 'home') {
-    const reco = getRecommended();
-    if (reco.length > 0) {
-      document.getElementById('recoSection').style.display = 'block';
-      renderGrid(reco, 'recoGrid');
-    }
-  }
 }
 
-function updateWatchBadge(id) {
-  document.querySelectorAll(`[data-id="${encodeURIComponent(id)}"]`).forEach(card => {
+function updateWatchBadges(id) {
+  document.querySelectorAll(`[data-id="${encodeURIComponent(id)}"]`).forEach(el => {
     const wc = getWatchCount(id);
-    let badge = card.querySelector('.watched-overlay');
+    let badge = el.querySelector('.watched-overlay');
     if (!badge) {
       badge = document.createElement('div');
       badge.className = 'watched-overlay';
-      card.prepend(badge);
+      el.prepend(badge);
     }
     badge.textContent = wc > 1 ? `VU ${wc}x` : 'VU';
   });
@@ -572,12 +579,12 @@ async function fetchWikiContent(title) {
     const page = Object.values(pages)[0];
 
     if (page.missing !== undefined) {
-      document.getElementById('modalContent').innerHTML = `<div class="empty-state"><div class="big">📭</div><p>Article introuvable sur Wikipédia FR</p></div>`;
+      document.getElementById('vpContent').innerHTML = `<div class="empty-state"><div class="big">📭</div><p>Article introuvable sur Wikipédia FR</p></div>`;
       return;
     }
 
     const extract = page.extract || '<p>Contenu non disponible.</p>';
-    document.getElementById('modalContent').innerHTML = `
+    document.getElementById('vpContent').innerHTML = `
       <div class="modal-extract">${extract}</div>
       <div class="tags-row">
         <span class="tag">${currentCard.cat}</span>
@@ -589,7 +596,7 @@ async function fetchWikiContent(title) {
       <button class="wiki-link" onclick="openWikiDirect()">🌐 Lire l'article complet sur Wikipédia</button>
     `;
   } catch(e) {
-    document.getElementById('modalContent').innerHTML = `
+    document.getElementById('vpContent').innerHTML = `
       <div class="empty-state"><div class="big">😕</div>
       <p>Impossible de charger l'article.<br><small>${e.message}</small></p>
       <br><button class="wiki-link" onclick="openWikiDirect()">🌐 Ouvrir sur Wikipédia</button></div>`;
@@ -601,10 +608,9 @@ function openWikiDirect() {
   window.open(`https://fr.wikipedia.org/wiki/${encodeURIComponent(currentCard.title)}`, '_blank');
 }
 
-function closeModal(e) {
-  if (e && e.type === 'click' && e.target !== document.getElementById('modalOverlay')) return;
-  document.getElementById('modalOverlay').classList.remove('open');
+function goBack() {
   stopPlayer();
+  showPageHome();
 }
 
 // ── PLAYER ─────────────────────────────────────────────
@@ -637,7 +643,7 @@ function updatePlayerUI() {
   document.getElementById('timeDisplay').textContent  = `${fmtDuration(playerSeconds)} / ${fmtDuration(playerDuration)}`;
 }
 function toggleLike() {
-  document.getElementById('likeBtn').classList.toggle('liked');
+  document.getElementById('vpLikeBtn').classList.toggle('liked');
   showToast('👍 Ajouté à vos préférences');
 }
 
@@ -658,14 +664,13 @@ async function init() {
   if (histBadge && histCount > 0) histBadge.textContent = histCount;
 
   await showHome();
-
   fetchTrending().then(cards => { if (cards) trendingCards = cards; });
 
   document.getElementById('searchInput').addEventListener('keydown', e => {
     if (e.key === 'Enter') searchWiki();
   });
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') closeModal();
+    if (e.key === 'Escape' && document.getElementById('videoPage').style.display !== 'none') goBack();
   });
 }
 
