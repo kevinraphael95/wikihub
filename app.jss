@@ -497,4 +497,176 @@ async function openModal(encodedId) {
   }
 
   currentCard = card;
-  recordV
+  recordView(card.id, card.cat);
+  updateWatchBadge(card.id);
+
+  document.getElementById('modalOverlay').classList.add('open');
+
+  // Player thumb : image si dispo, sinon gradient
+  const playerThumb = document.getElementById('playerThumb');
+  const cachedImg = imgCache[card.id];
+  if (cachedImg) {
+    playerThumb.style.cssText = `width:100%;height:100%;background:url(${cachedImg}) center/cover;`;
+    playerThumb.textContent = '';
+  } else {
+    playerThumb.style.cssText = `width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:80px;background:linear-gradient(135deg,${card.pal[0]},${card.pal[1]})`;
+    playerThumb.textContent = card.emoji;
+    // Fetch image et l'injecte si elle arrive
+    fetchThumb(card.id).then(url => {
+      if (url && currentCard?.id === card.id) {
+        playerThumb.style.cssText = `width:100%;height:100%;background:url(${url}) center/cover;`;
+        playerThumb.textContent = '';
+      }
+    });
+  }
+
+  document.getElementById('modalChannel').textContent = card.channel;
+  document.getElementById('modalTitle').textContent   = card.title;
+  document.getElementById('modalMeta').innerHTML = `
+    <span>👁 ${fmtViews(card.realViews ?? card.views)}</span>
+    <span>⏱ ${fmtDuration(card.dur)}</span>
+    <span>🗂 ${card.cat}</span>
+    <span>${card.ago}</span>
+  `;
+  document.getElementById('likeCount').textContent    = card.likes.toLocaleString();
+  document.getElementById('dislikeCount').textContent = card.dislikes.toLocaleString();
+  document.getElementById('likeBtn').classList.remove('liked');
+
+  const wc = getWatchCount(card.id);
+  document.getElementById('watchCountBadge').textContent = wc > 1 ? `Vu ${wc} fois` : 'Premier visionnage';
+  document.getElementById('modalContent').innerHTML = `<div class="loading-text"><span class="spinner"></span>Chargement de l'article...</div>`;
+
+  startPlayer(card.dur);
+  await fetchWikiContent(card.title);
+
+  if (currentView === 'home') {
+    const reco = getRecommended();
+    if (reco.length > 0) {
+      document.getElementById('recoSection').style.display = 'block';
+      renderGrid(reco, 'recoGrid');
+    }
+  }
+}
+
+function updateWatchBadge(id) {
+  document.querySelectorAll(`[data-id="${encodeURIComponent(id)}"]`).forEach(card => {
+    const wc = getWatchCount(id);
+    let badge = card.querySelector('.watched-overlay');
+    if (!badge) {
+      badge = document.createElement('div');
+      badge.className = 'watched-overlay';
+      card.prepend(badge);
+    }
+    badge.textContent = wc > 1 ? `VU ${wc}x` : 'VU';
+  });
+}
+
+async function fetchWikiContent(title) {
+  try {
+    const url  = `https://fr.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(title)}&prop=extracts&exintro=1&exchars=3000&format=json&origin=*`;
+    const res  = await fetch(url);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    const pages = data.query?.pages;
+    if (!pages) throw new Error('No pages');
+    const page = Object.values(pages)[0];
+
+    if (page.missing !== undefined) {
+      document.getElementById('modalContent').innerHTML = `<div class="empty-state"><div class="big">📭</div><p>Article introuvable sur Wikipédia FR</p></div>`;
+      return;
+    }
+
+    const extract = page.extract || '<p>Contenu non disponible.</p>';
+    document.getElementById('modalContent').innerHTML = `
+      <div class="modal-extract">${extract}</div>
+      <div class="tags-row">
+        <span class="tag">${currentCard.cat}</span>
+        <span class="tag">Encyclopédie</span>
+        <span class="tag">Connaissance</span>
+        <span class="tag">Wikipédia</span>
+      </div>
+      <br>
+      <button class="wiki-link" onclick="openWikiDirect()">🌐 Lire l'article complet sur Wikipédia</button>
+    `;
+  } catch(e) {
+    document.getElementById('modalContent').innerHTML = `
+      <div class="empty-state"><div class="big">😕</div>
+      <p>Impossible de charger l'article.<br><small>${e.message}</small></p>
+      <br><button class="wiki-link" onclick="openWikiDirect()">🌐 Ouvrir sur Wikipédia</button></div>`;
+  }
+}
+
+function openWikiDirect() {
+  if (!currentCard) return;
+  window.open(`https://fr.wikipedia.org/wiki/${encodeURIComponent(currentCard.title)}`, '_blank');
+}
+
+function closeModal(e) {
+  if (e && e.type === 'click' && e.target !== document.getElementById('modalOverlay')) return;
+  document.getElementById('modalOverlay').classList.remove('open');
+  stopPlayer();
+}
+
+// ── PLAYER ─────────────────────────────────────────────
+function startPlayer(dur) {
+  stopPlayer();
+  playerDuration = dur;
+  playerSeconds  = 0;
+  isPlaying      = true;
+  document.getElementById('playPauseBtn').textContent = '⏸';
+  updatePlayerUI();
+  playerInterval = setInterval(() => {
+    if (!isPlaying) return;
+    playerSeconds = Math.min(playerSeconds + 1, playerDuration);
+    updatePlayerUI();
+    if (playerSeconds >= playerDuration) stopPlayer();
+  }, 1000);
+}
+function stopPlayer() { clearInterval(playerInterval); playerInterval = null; }
+function togglePlay() {
+  isPlaying = !isPlaying;
+  document.getElementById('playPauseBtn').textContent = isPlaying ? '⏸' : '▶';
+}
+function seekProgress(e) {
+  playerSeconds = Math.floor((e.offsetX / e.currentTarget.offsetWidth) * playerDuration);
+  updatePlayerUI();
+}
+function updatePlayerUI() {
+  const pct = playerDuration ? (playerSeconds / playerDuration * 100) : 0;
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('timeDisplay').textContent  = `${fmtDuration(playerSeconds)} / ${fmtDuration(playerDuration)}`;
+}
+function toggleLike() {
+  document.getElementById('likeBtn').classList.toggle('liked');
+  showToast('👍 Ajouté à vos préférences');
+}
+
+// ── TOAST ──────────────────────────────────────────────
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ── INIT ───────────────────────────────────────────────
+async function init() {
+  allCards = buildPool();
+
+  const histCount = Object.keys(cache.history).length;
+  const histBadge = document.getElementById('histBadge');
+  if (histBadge && histCount > 0) histBadge.textContent = histCount;
+
+  await showHome();
+
+  fetchTrending().then(cards => { if (cards) trendingCards = cards; });
+
+  document.getElementById('searchInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') searchWiki();
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeModal();
+  });
+}
+
+document.addEventListener('DOMContentLoaded', init);
