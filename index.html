@@ -107,19 +107,23 @@
 
     <button class="vp-back" onclick="goBack()">← Retour</button>
 
-    <!-- Player : texte de l'intro qui défile, lu par la synthèse vocale -->
+    <!-- Player : diaporama des images de l'article, lu par la synthèse vocale,
+         avec sous-titres (activés par défaut, désactivables) -->
     <div class="player-area">
-      <div class="player-thumb" id="playerThumb"></div>
+      <div class="player-thumb" id="playerThumbA"></div>
+      <div class="player-thumb" id="playerThumbB"></div>
       <div class="player-scrim"></div>
-      <div class="teleprompter-wrap">
-        <div class="tts-bar">
-          <div class="tts-status" id="ttsStatus">🔊 Synthèse vocale</div>
-          <select class="tts-voice-select" id="ttsVoiceSelect" onchange="onVoicePicked(this.value)" title="Choisir une voix"></select>
-        </div>
-        <div class="teleprompter" id="teleprompter">
-          <span class="tp-sentence active">Chargement…</span>
-        </div>
+
+      <div class="tts-bar">
+        <div class="tts-status" id="ttsStatus">🔊 Synthèse vocale</div>
+        <select class="tts-voice-select" id="ttsVoiceSelect" onchange="onVoicePicked(this.value)" title="Choisir une voix"></select>
       </div>
+
+      <!-- Sous-titres : seule la phrase en cours s'affiche, comme des vrais sous-titres -->
+      <div class="subtitle-bar" id="subtitleBar">
+        <span class="subtitle-text" id="subtitleText">Chargement…</span>
+      </div>
+
       <div class="player-bar">
         <div class="progress-track" onclick="seekProgress(event)">
           <div class="progress-fill" id="progressFill"></div>
@@ -128,6 +132,7 @@
           <button class="ctrl-btn" id="playPauseBtn" onclick="togglePlay()">⏸</button>
           <span class="time-display" id="timeDisplay">0:00 / 0:00</span>
           <div class="ctrl-spacer"></div>
+          <button class="ctrl-btn ctrl-btn-toggle active" id="subtitleToggleBtn" onclick="toggleSubtitles()" title="Activer/désactiver les sous-titres">CC</button>
           <button class="ctrl-btn" onclick="openWikiDirect()" title="Ouvrir sur Wikipédia">🌐</button>
         </div>
       </div>
