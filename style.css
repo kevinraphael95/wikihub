@@ -427,12 +427,72 @@ header {
   width: 100%;
 }
 .player-thumb {
-  width: 100%;
-  height: 100%;
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  filter: blur(1px) brightness(0.55);
+  transform: scale(1.03);
+}
+.player-scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.35) 35%, rgba(0,0,0,0.65) 100%);
+  pointer-events: none;
+}
+
+/* ── TELEPROMPTER (texte de l'article qui défile + lu en TTS) ── */
+.teleprompter-wrap {
+  position: absolute;
+  inset: 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  font-size: 80px;
+  padding: 60px 8% 90px;
+  z-index: 1;
+  pointer-events: none;
+}
+.tts-status {
+  position: absolute;
+  top: 14px;
+  left: 16px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  color: var(--orange);
+  background: rgba(0,0,0,0.5);
+  border: 1px solid rgba(255,144,0,0.4);
+  padding: 4px 10px;
+  border-radius: 20px;
+}
+.teleprompter {
+  max-height: 100%;
+  overflow-y: auto;
+  text-align: center;
+  font-size: 22px;
+  line-height: 1.6;
+  font-weight: 600;
+  color: rgba(255,255,255,0.45);
+  scrollbar-width: none;
+}
+.teleprompter::-webkit-scrollbar { display: none; }
+.tp-sentence {
+  transition: color 0.25s, opacity 0.25s;
+  opacity: 0.55;
+}
+.tp-sentence.read {
+  color: rgba(255,255,255,0.5);
+  opacity: 0.4;
+}
+.tp-sentence.active {
+  color: #fff;
+  opacity: 1;
+  text-shadow: 0 0 18px rgba(255,144,0,0.5);
+}
+@media (max-width: 600px) {
+  .teleprompter { font-size: 16px; }
+  .teleprompter-wrap { padding: 50px 6% 80px; }
 }
 .player-bar {
   position: absolute;
@@ -441,6 +501,8 @@ header {
   right: 0;
   background: linear-gradient(transparent, rgba(0,0,0,0.9));
   padding: 24px 16px 12px;
+  z-index: 2;
+  pointer-events: auto;
 }
 .progress-track {
   height: 4px;
