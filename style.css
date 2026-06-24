@@ -431,28 +431,22 @@ header {
   inset: 0;
   background-size: cover;
   background-position: center;
-  filter: blur(1px) brightness(0.55);
-  transform: scale(1.03);
+  filter: brightness(0.75);
+  opacity: 0;
+  transition: opacity 1.1s ease-in-out;
+}
+.player-thumb.visible {
+  opacity: 1;
 }
 .player-scrim {
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.35) 35%, rgba(0,0,0,0.65) 100%);
+  background: linear-gradient(180deg, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.05) 30%, rgba(0,0,0,0.15) 60%, rgba(0,0,0,0.8) 100%);
   pointer-events: none;
+  z-index: 1;
 }
 
-/* ── TELEPROMPTER (texte de l'article qui défile + lu en TTS) ── */
-.teleprompter-wrap {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 60px 8% 90px;
-  z-index: 1;
-  pointer-events: none;
-}
+/* ── TTS status / voice picker (top bar over the slideshow) ── */
 .tts-bar {
   position: absolute;
   top: 14px;
@@ -461,7 +455,7 @@ header {
   display: flex;
   align-items: center;
   gap: 8px;
-  pointer-events: auto;
+  z-index: 2;
 }
 .tts-status {
   font-size: 11px;
@@ -489,33 +483,39 @@ header {
 }
 .tts-voice-select:hover { border-color: var(--orange); }
 .tts-voice-select:focus { border-color: var(--orange); }
-.teleprompter {
-  max-height: 100%;
-  overflow-y: auto;
+
+/* ── SOUS-TITRES (phrase courante, façon sous-titres classiques) ── */
+.subtitle-bar {
+  position: absolute;
+  left: 6%;
+  right: 6%;
+  bottom: 64px;
+  z-index: 2;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+.subtitle-bar.hidden {
+  opacity: 0;
+  visibility: hidden;
+}
+.subtitle-text {
+  display: inline-block;
+  max-width: 100%;
   text-align: center;
-  font-size: 22px;
-  line-height: 1.6;
+  font-size: 17px;
   font-weight: 600;
-  color: rgba(255,255,255,0.45);
-  scrollbar-width: none;
-}
-.teleprompter::-webkit-scrollbar { display: none; }
-.tp-sentence {
-  transition: color 0.25s, opacity 0.25s;
-  opacity: 0.55;
-}
-.tp-sentence.read {
-  color: rgba(255,255,255,0.5);
-  opacity: 0.4;
-}
-.tp-sentence.active {
+  line-height: 1.4;
   color: #fff;
-  opacity: 1;
-  text-shadow: 0 0 18px rgba(255,144,0,0.5);
+  background: rgba(0,0,0,0.62);
+  padding: 6px 16px;
+  border-radius: 5px;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.8);
 }
 @media (max-width: 600px) {
-  .teleprompter { font-size: 16px; }
-  .teleprompter-wrap { padding: 50px 6% 80px; }
+  .subtitle-text { font-size: 14px; padding: 5px 12px; }
+  .subtitle-bar { bottom: 58px; }
 }
 .player-bar {
   position: absolute;
@@ -560,6 +560,21 @@ header {
   transition: opacity 0.15s;
 }
 .ctrl-btn:hover { opacity: 1; }
+.ctrl-btn-toggle {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  border: 1.5px solid rgba(255,255,255,0.5);
+  border-radius: 4px;
+  padding: 3px 6px;
+  opacity: 0.6;
+}
+.ctrl-btn-toggle.active {
+  opacity: 1;
+  border-color: var(--orange);
+  color: var(--orange);
+  background: rgba(255,144,0,0.12);
+}
 .time-display { font-size: 13px; color: #fff; font-weight: 500; }
 .ctrl-spacer { flex: 1; }
 
