@@ -494,6 +494,7 @@ const ttsSupported = ('speechSynthesis' in window);
 let ttsSentences   = [];   // [{text, el}]
 let ttsIndex       = 0;
 let ttsVoice       = null;
+let ttsVoiceList   = [];   // french voices available, best-first
 let ttsActive      = false; // true once we have sentences ready to read
 
 function splitIntoSentences(html) {
@@ -506,14 +507,69 @@ function splitIntoSentences(html) {
   return parts.map(s => s.trim()).filter(s => s.length > 0);
 }
 
-function pickFrenchVoice() {
+// Heuristic score: higher = more natural-sounding, lower = more robotic.
+// Network voices (Google/Microsoft "Online"/"Natural"/"Neural") sound far
+// better than the default local engines (eSpeak-like on Linux/Android,
+// the basic "Microsoft Hortense/Paul" on Windows, compact voices on iOS).
+function scoreVoice(v) {
+  const name = (v.name || '').toLowerCase();
+  let score = 0;
+
+  if (!v.localService) score += 50;            // network-backed voice: usually much better
+  if (/natural|online|neural/.test(name)) score += 40;
+  if (/google/.test(name)) score += 25;          // Chrome's "Google français" is solid
+  if (/wavenet|premium|enhanced/.test(name)) score += 30;
+
+  // Known weaker/robotic local engines: deprioritize.
+  if (/espeak|compact|festival/.test(name)) score -= 40;
+
+  // Slight preference for clearly French-labeled female/standard voices
+  // commonly reported as more pleasant (purely a tie-breaker).
+  if (/amelie|aurelie|audrey|julie|celine|virginie/.test(name)) score += 5;
+
+  return score;
+}
+
+function rankFrenchVoices() {
   const voices = window.speechSynthesis.getVoices();
-  if (!voices.length) return null;
-  return voices.find(v => v.lang?.toLowerCase().startsWith('fr')) || voices[0];
+  if (!voices.length) return [];
+  const fr = voices.filter(v => v.lang?.toLowerCase().startsWith('fr'));
+  const pool = fr.length ? fr : voices; // fall back to any voice if no FR at all
+  return [...pool].sort((a, b) => scoreVoice(b) - scoreVoice(a));
+}
+
+function pickFrenchVoice() {
+  ttsVoiceList = rankFrenchVoices();
+  return ttsVoiceList[0] || null;
+}
+
+function populateVoicePicker() {
+  const sel = document.getElementById('ttsVoiceSelect');
+  if (!sel) return;
+  if (!ttsVoiceList.length) ttsVoiceList = rankFrenchVoices();
+  if (!ttsVoiceList.length) return;
+  sel.innerHTML = ttsVoiceList.map((v, i) =>
+    `<option value="${i}">${v.name}${v.localService ? '' : ' ☁️'}</option>`
+  ).join('');
+  const currentIdx = ttsVoiceList.indexOf(ttsVoice);
+  sel.value = currentIdx >= 0 ? currentIdx : 0;
+}
+
+function onVoicePicked(idx) {
+  const v = ttsVoiceList[idx];
+  if (!v) return;
+  ttsVoice = v;
+  if (ttsSupported && ttsActive) {
+    // Restart current sentence with the new voice
+    speakFrom(ttsIndex);
+  }
 }
 
 if (ttsSupported) {
-  window.speechSynthesis.onvoiceschanged = () => { ttsVoice = pickFrenchVoice(); };
+  window.speechSynthesis.onvoiceschanged = () => {
+    ttsVoice = pickFrenchVoice();
+    populateVoicePicker();
+  };
 }
 
 function buildTeleprompter(sentences) {
@@ -552,7 +608,10 @@ function speakFrom(i) {
     const utter = new SpeechSynthesisUtterance(ttsSentences[ttsIndex].text);
     if (ttsVoice) utter.voice = ttsVoice;
     utter.lang = ttsVoice?.lang || 'fr-FR';
-    utter.rate = 1;
+    // Slightly slower + a touch lower pitch reads as calmer/less robotic
+    // than the default rate=1/pitch=1 on most synthetic voices.
+    utter.rate  = 0.95;
+    utter.pitch = 0.98;
     utter.onend = () => {
       if (!isPlaying || !ttsActive) return; // paused: don't auto-advance
       ttsIndex++;
@@ -723,6 +782,7 @@ async function fetchWikiContent(title) {
       document.getElementById('playPauseBtn').textContent = '⏸';
       // Voices sometimes load async on first use
       if (!ttsVoice) ttsVoice = pickFrenchVoice();
+      populateVoicePicker();
       speakFrom(0);
     } else {
       highlightSentence(0);
