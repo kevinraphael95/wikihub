@@ -142,6 +142,109 @@ async function injectThumb(title, pal, emoji) {
   });
 }
 
+// ── FULL IMAGE GALLERY (for the in-player slideshow) ────
+const GALLERY_CACHE_KEY = 'wikihub_gallerycache_v1';
+function loadGalleryCache() {
+  try { return JSON.parse(localStorage.getItem(GALLERY_CACHE_KEY)) || {}; }
+  catch { return {}; }
+}
+function saveGalleryCache(c) {
+  try { localStorage.setItem(GALLERY_CACHE_KEY, JSON.stringify(c)); } catch {}
+}
+let galleryCache = loadGalleryCache();
+
+const MAX_GALLERY_IMAGES = 25;
+const BAD_FILE_PATTERN = /\.svg$|\.ogg$|\.ogv$|\.webm$|\.gif$/i;
+const BAD_NAME_PATTERN = /commons-logo|wikidata|wikisource|wiktionary|disambig|edit-icon|icon[-_]|logo[-_.]|^pictogram|\bicon\b|crystal_clear|symbol_|red_pog|blue_pog|flag_of|ambox|padlock|folder[-_]|question_mark|wiki_letter|loudspeaker/i;
+
+function looksLikeUsefulImage(fileTitle, width, height) {
+  if (BAD_FILE_PATTERN.test(fileTitle)) return false;
+  if (BAD_NAME_PATTERN.test(fileTitle)) return false;
+  if ((width ?? 0) < MIN_IMG_W) return false;
+  // Skip near-square tiny icons that slipped through, and extreme aspect ratios (banners/maps cut weird)
+  if (height && width) {
+    const ratio = width / height;
+    if (ratio > 4 || ratio < 0.25) return false;
+  }
+  return true;
+}
+
+async function fetchArticleGallery(title) {
+  if (galleryCache[title]) return galleryCache[title];
+  const urls = [];
+  const seen = new Set();
+
+  function addUrl(u) {
+    if (u && !seen.has(u)) { seen.add(u); urls.push(u); }
+  }
+
+  // 1. List every file embedded in the article itself (most relevant images)
+  try {
+    const listApi = `https://fr.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(title)}&prop=images&imlimit=50&format=json&origin=*`;
+    const listRes  = await fetch(listApi);
+    const listData = await listRes.json();
+    const page = Object.values(listData.query?.pages || {})[0];
+    const fileTitles = (page?.images || [])
+      .map(im => im.title)
+      .filter(t => !BAD_FILE_PATTERN.test(t) && !BAD_NAME_PATTERN.test(t));
+
+    if (fileTitles.length) {
+      // Wikipedia API allows batching multiple titles per imageinfo call
+      const batches = [];
+      for (let i = 0; i < fileTitles.length; i += 20) batches.push(fileTitles.slice(i, i + 20));
+
+      for (const batch of batches) {
+        const infoApi = `https://fr.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(batch.join('|'))}&prop=imageinfo&iiprop=url|size&iiurlwidth=900&format=json&origin=*`;
+        const infoRes  = await fetch(infoApi);
+        const infoData = await infoRes.json();
+        const pages = Object.values(infoData.query?.pages || {});
+        pages.forEach(p => {
+          const ii = p.imageinfo?.[0];
+          if (!ii) return;
+          if (!looksLikeUsefulImage(p.title, ii.thumbwidth ?? ii.width, ii.thumbheight ?? ii.height)) return;
+          addUrl(ii.thumburl || ii.url);
+        });
+        if (urls.length >= MAX_GALLERY_IMAGES) break;
+      }
+    }
+  } catch {}
+
+  // 2. Top up with a Commons category/search match if the article itself was light on images
+  if (urls.length < 6) {
+    try {
+      const api = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrnamespace=6&gsrsearch=${encodeURIComponent(title)}&gsrlimit=20&prop=imageinfo&iiprop=url|size&iiurlwidth=900&format=json&origin=*`;
+      const res  = await fetch(api);
+      const data = await res.json();
+      const pages = Object.values(data.query?.pages || {});
+      pages.forEach(p => {
+        const ii = p.imageinfo?.[0];
+        if (!ii) return;
+        if (!looksLikeUsefulImage(p.title || '', ii.thumbwidth, ii.thumbheight)) return;
+        addUrl(ii.thumburl || ii.url);
+      });
+    } catch {}
+  }
+
+  // 3. Last resort: Openverse, same as the single-thumb fallback
+  if (!urls.length) {
+    try {
+      const api = `https://api.openverse.org/v1/images/?q=${encodeURIComponent(title)}&license_type=commercial,modification&page_size=10&mature=false`;
+      const res  = await fetch(api, { headers: { 'Accept': 'application/json' } });
+      if (res.ok) {
+        const data = await res.json();
+        (data.results || []).forEach(r => {
+          if (r.url && (r.width ?? 999) >= MIN_IMG_W) addUrl(r.url);
+        });
+      }
+    } catch {}
+  }
+
+  const result = urls.slice(0, MAX_GALLERY_IMAGES);
+  galleryCache[title] = result;
+  saveGalleryCache(galleryCache);
+  return result;
+}
+
 function lazyLoadThumbs(cards) {
   cards.forEach(c => {
     if (c.id in imgCache) {
@@ -336,6 +439,7 @@ let searchResults  = [];
 function showPageHome() {
   if (ttsSupported) window.speechSynthesis.cancel();
   ttsActive = false;
+  stopSlideshow();
   document.getElementById('homePage').style.display  = 'flex';
   document.getElementById('videoPage').style.display = 'none';
 }
@@ -489,6 +593,61 @@ let playerSeconds  = 0;
 let playerDuration = 0;
 let isPlaying      = true;
 
+// ── IMAGE SLIDESHOW (replaces the single static background) ──
+let slideshowImages   = [];
+let slideshowIndex    = 0;
+let slideshowTimer     = null;
+const SLIDESHOW_INTERVAL_MS = 5000;
+
+function stopSlideshow() {
+  clearInterval(slideshowTimer);
+  slideshowTimer = null;
+}
+
+function setSlide(layerEl, url) {
+  layerEl.style.backgroundImage = `url(${url})`;
+}
+
+function showNextSlide() {
+  if (!slideshowImages.length) return;
+  const layerA = document.getElementById('playerThumbA');
+  const layerB = document.getElementById('playerThumbB');
+  const showingA = layerA.classList.contains('visible');
+  const incoming = showingA ? layerB : layerA;
+  const outgoing = showingA ? layerA : layerB;
+
+  slideshowIndex = (slideshowIndex + 1) % slideshowImages.length;
+  setSlide(incoming, slideshowImages[slideshowIndex]);
+  incoming.classList.add('visible');
+  outgoing.classList.remove('visible');
+}
+
+function startSlideshow(images, fallbackGradientCss) {
+  stopSlideshow();
+  slideshowImages = images;
+  slideshowIndex   = 0;
+
+  const layerA = document.getElementById('playerThumbA');
+  const layerB = document.getElementById('playerThumbB');
+  layerB.classList.remove('visible');
+  layerB.style.backgroundImage = 'none';
+
+  if (!images.length) {
+    layerA.style.backgroundImage = 'none';
+    layerA.style.background = fallbackGradientCss;
+    layerA.classList.add('visible');
+    return;
+  }
+
+  layerA.style.background = '';
+  setSlide(layerA, images[0]);
+  layerA.classList.add('visible');
+
+  if (images.length > 1) {
+    slideshowTimer = setInterval(showNextSlide, SLIDESHOW_INTERVAL_MS);
+  }
+}
+
 // ── TEXT-TO-SPEECH TELEPROMPTER ─────────────────────────
 const ttsSupported = ('speechSynthesis' in window);
 let ttsSentences   = [];   // [{text, el}]
@@ -572,25 +731,41 @@ if (ttsSupported) {
   };
 }
 
+// ── SUBTITLES (sous-titres : phrase courante uniquement) ──
+const SUBS_PREF_KEY = 'wikihub_subs_enabled';
+function loadSubsPref() {
+  const v = localStorage.getItem(SUBS_PREF_KEY);
+  return v === null ? true : v === '1'; // ON by default
+}
+function saveSubsPref(on) {
+  try { localStorage.setItem(SUBS_PREF_KEY, on ? '1' : '0'); } catch {}
+}
+let subtitlesEnabled = loadSubsPref();
+
+function applySubtitleVisibility() {
+  const bar = document.getElementById('subtitleBar');
+  const btn = document.getElementById('subtitleToggleBtn');
+  if (bar) bar.classList.toggle('hidden', !subtitlesEnabled);
+  if (btn) btn.classList.toggle('active', subtitlesEnabled);
+}
+
+function toggleSubtitles() {
+  subtitlesEnabled = !subtitlesEnabled;
+  saveSubsPref(subtitlesEnabled);
+  applySubtitleVisibility();
+}
+
 function buildTeleprompter(sentences) {
-  const wrap = document.getElementById('teleprompter');
-  if (!wrap) return;
-  ttsSentences = sentences.map((text) => ({ text, el: null }));
-  wrap.innerHTML = ttsSentences.map((s, i) =>
-    `<span class="tp-sentence" id="tp-${i}">${s.text}</span>`
-  ).join(' ');
-  ttsSentences.forEach((s, i) => { s.el = document.getElementById(`tp-${i}`); });
+  // Kept the name for minimal diff elsewhere; this no longer builds a
+  // scrolling block of text — it just stores the sentences for the
+  // bottom subtitle bar to display one at a time.
+  ttsSentences = sentences.map((text) => ({ text }));
+  applySubtitleVisibility();
 }
 
 function highlightSentence(i) {
-  document.querySelectorAll('.tp-sentence.active').forEach(el => el.classList.remove('active'));
-  document.querySelectorAll('.tp-sentence.read').forEach(el => el.classList.remove('read'));
-  ttsSentences.forEach((s, idx) => { if (idx < i && s.el) s.el.classList.add('read'); });
-  const cur = ttsSentences[i]?.el;
-  if (cur) {
-    cur.classList.add('active');
-    cur.scrollIntoView({ block: 'center', behavior: 'smooth' });
-  }
+  const sub = document.getElementById('subtitleText');
+  if (sub) sub.textContent = ttsSentences[i]?.text || '';
 }
 
 function speakFrom(i) {
@@ -658,37 +833,36 @@ async function openVideo(encodedId) {
 
   showPageVideo();
 
-  // ── Player background (subtle, behind the scrolling text) ──
-  const playerBg = document.getElementById('playerThumb');
+  // ── Player background: slideshow of every usable article image ──
   const cachedImg = imgCache[card.id];
+  const fallbackGradient = `linear-gradient(135deg,${card.pal[0]},${card.pal[1]})`;
 
-  function applyBgImg(url) {
-    playerBg.style.backgroundImage = `url(${url})`;
-  }
-  function applyBgGradient() {
-    playerBg.style.backgroundImage = 'none';
-    playerBg.style.background = `linear-gradient(135deg,${card.pal[0]},${card.pal[1]})`;
-  }
-
-  playerBg.style.backgroundSize = 'cover';
-  playerBg.style.backgroundPosition = 'center';
-
-  if (cachedImg) {
-    applyBgImg(cachedImg);
-  } else {
-    applyBgGradient();
+  // Show something immediately (cached single thumb, or gradient) while the
+  // full gallery loads in the background.
+  startSlideshow(cachedImg ? [cachedImg] : [], fallbackGradient);
+  if (!cachedImg) {
     fetchThumb(card.id).then(url => {
-      if (url && currentCard?.id === card.id) applyBgImg(url);
+      if (url && currentCard?.id === card.id && slideshowImages.length <= 1) {
+        startSlideshow([url], fallbackGradient);
+      }
     });
   }
 
-  // ── Teleprompter: reset while content loads ──
+  fetchArticleGallery(card.title).then(images => {
+    if (currentCard?.id !== card.id) return; // user navigated away
+    if (images.length) {
+      startSlideshow(images, fallbackGradient);
+    }
+  });
+
+  // ── Subtitles: reset while content loads ──
   if (ttsSupported) window.speechSynthesis.cancel();
   ttsActive = false;
   ttsSentences = [];
   ttsIndex = 0;
-  const tp = document.getElementById('teleprompter');
-  if (tp) tp.innerHTML = `<span class="tp-sentence">Chargement de la voix…</span>`;
+  const subText = document.getElementById('subtitleText');
+  if (subText) subText.textContent = 'Chargement de la voix…';
+  applySubtitleVisibility();
   document.getElementById('ttsStatus').textContent = ttsSupported
     ? '🔊 Synthèse vocale'
     : '⚠️ Synthèse vocale non disponible sur ce navigateur';
@@ -746,8 +920,8 @@ async function fetchWikiContent(title) {
     if (page.missing !== undefined) {
       const msg = `<div class="empty-state"><div class="big">📭</div><p>Article introuvable sur Wikipédia FR</p></div>`;
       document.getElementById('vpContent').innerHTML = msg;
-      const tp = document.getElementById('teleprompter');
-      if (tp) tp.innerHTML = `<span class="tp-sentence active">Article introuvable sur Wikipédia.</span>`;
+      const subText = document.getElementById('subtitleText');
+      if (subText) subText.textContent = 'Article introuvable sur Wikipédia.';
       playerDuration = 0;
       updatePlayerUI();
       return;
@@ -792,8 +966,8 @@ async function fetchWikiContent(title) {
       <div class="empty-state"><div class="big">😕</div>
       <p>Impossible de charger l'article.<br><small>${e.message}</small></p>
       <br><button class="wiki-link" onclick="openWikiDirect()">🌐 Ouvrir sur Wikipédia</button></div>`;
-    const tp = document.getElementById('teleprompter');
-    if (tp) tp.innerHTML = `<span class="tp-sentence active">Impossible de charger l'article.</span>`;
+    const subText = document.getElementById('subtitleText');
+    if (subText) subText.textContent = "Impossible de charger l'article.";
   }
 }
 
