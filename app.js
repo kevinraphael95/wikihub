@@ -334,6 +334,8 @@ let searchResults  = [];
 
 // ── VIEW : HOME ────────────────────────────────────────
 function showPageHome() {
+  if (ttsSupported) window.speechSynthesis.cancel();
+  ttsActive = false;
   document.getElementById('homePage').style.display  = 'flex';
   document.getElementById('videoPage').style.display = 'none';
 }
@@ -487,6 +489,95 @@ let playerSeconds  = 0;
 let playerDuration = 0;
 let isPlaying      = true;
 
+// ── TEXT-TO-SPEECH TELEPROMPTER ─────────────────────────
+const ttsSupported = ('speechSynthesis' in window);
+let ttsSentences   = [];   // [{text, el}]
+let ttsIndex       = 0;
+let ttsVoice       = null;
+let ttsActive      = false; // true once we have sentences ready to read
+
+function splitIntoSentences(html) {
+  // Strip tags, keep plain readable text, then split into sentence-like chunks.
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html;
+  const text = (tmp.textContent || '').replace(/\s+/g, ' ').trim();
+  if (!text) return [];
+  const parts = text.match(/[^.!?]+[.!?]*(?:\s|$)/g) || [text];
+  return parts.map(s => s.trim()).filter(s => s.length > 0);
+}
+
+function pickFrenchVoice() {
+  const voices = window.speechSynthesis.getVoices();
+  if (!voices.length) return null;
+  return voices.find(v => v.lang?.toLowerCase().startsWith('fr')) || voices[0];
+}
+
+if (ttsSupported) {
+  window.speechSynthesis.onvoiceschanged = () => { ttsVoice = pickFrenchVoice(); };
+}
+
+function buildTeleprompter(sentences) {
+  const wrap = document.getElementById('teleprompter');
+  if (!wrap) return;
+  ttsSentences = sentences.map((text) => ({ text, el: null }));
+  wrap.innerHTML = ttsSentences.map((s, i) =>
+    `<span class="tp-sentence" id="tp-${i}">${s.text}</span>`
+  ).join(' ');
+  ttsSentences.forEach((s, i) => { s.el = document.getElementById(`tp-${i}`); });
+}
+
+function highlightSentence(i) {
+  document.querySelectorAll('.tp-sentence.active').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.tp-sentence.read').forEach(el => el.classList.remove('read'));
+  ttsSentences.forEach((s, idx) => { if (idx < i && s.el) s.el.classList.add('read'); });
+  const cur = ttsSentences[i]?.el;
+  if (cur) {
+    cur.classList.add('active');
+    cur.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }
+}
+
+function speakFrom(i) {
+  if (!ttsSupported || !ttsSentences.length) return;
+  window.speechSynthesis.cancel();
+  ttsIndex = Math.max(0, Math.min(i, ttsSentences.length - 1));
+
+  const speakNext = () => {
+    if (!ttsActive || ttsIndex >= ttsSentences.length) {
+      if (ttsIndex >= ttsSentences.length) finishPlayback();
+      return;
+    }
+    highlightSentence(ttsIndex);
+    updatePlayerUI();
+    const utter = new SpeechSynthesisUtterance(ttsSentences[ttsIndex].text);
+    if (ttsVoice) utter.voice = ttsVoice;
+    utter.lang = ttsVoice?.lang || 'fr-FR';
+    utter.rate = 1;
+    utter.onend = () => {
+      if (!isPlaying || !ttsActive) return; // paused: don't auto-advance
+      ttsIndex++;
+      speakNext();
+    };
+    utter.onerror = () => {
+      if (!isPlaying || !ttsActive) return;
+      ttsIndex++;
+      speakNext();
+    };
+    window.speechSynthesis.speak(utter);
+  };
+  speakNext();
+}
+
+function finishPlayback() {
+  isPlaying = false;
+  ttsActive = false;
+  document.getElementById('playPauseBtn').textContent = '▶';
+  document.getElementById('progressFill').style.width = '100%';
+  document.getElementById('timeDisplay').textContent = playerDuration
+    ? `Phrase ${playerDuration} / ${playerDuration}`
+    : '0:00 / 0:00';
+}
+
 function getCardById(id) {
   return allCards.find(c => c.id === id)
     || trendingCards.find(c => c.id === id)
@@ -508,34 +599,46 @@ async function openVideo(encodedId) {
 
   showPageVideo();
 
-  // ── Player thumb ──
-  const playerThumb = document.getElementById('playerThumb');
+  // ── Player background (subtle, behind the scrolling text) ──
+  const playerBg = document.getElementById('playerThumb');
   const cachedImg = imgCache[card.id];
 
-  function applyThumbImg(url) {
-    playerThumb.style.cssText = `width:100%;height:100%;background:url(${url}) center/cover;`;
-    playerThumb.innerHTML = '';
+  function applyBgImg(url) {
+    playerBg.style.backgroundImage = `url(${url})`;
   }
-  function applyThumbGradient() {
-    playerThumb.style.cssText = `width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:80px;background:linear-gradient(135deg,${card.pal[0]},${card.pal[1]})`;
-    playerThumb.innerHTML = `<span>${card.emoji}</span>`;
+  function applyBgGradient() {
+    playerBg.style.backgroundImage = 'none';
+    playerBg.style.background = `linear-gradient(135deg,${card.pal[0]},${card.pal[1]})`;
   }
 
+  playerBg.style.backgroundSize = 'cover';
+  playerBg.style.backgroundPosition = 'center';
+
   if (cachedImg) {
-    applyThumbImg(cachedImg);
+    applyBgImg(cachedImg);
   } else {
-    applyThumbGradient();
+    applyBgGradient();
     fetchThumb(card.id).then(url => {
-      if (url && currentCard?.id === card.id) applyThumbImg(url);
+      if (url && currentCard?.id === card.id) applyBgImg(url);
     });
   }
+
+  // ── Teleprompter: reset while content loads ──
+  if (ttsSupported) window.speechSynthesis.cancel();
+  ttsActive = false;
+  ttsSentences = [];
+  ttsIndex = 0;
+  const tp = document.getElementById('teleprompter');
+  if (tp) tp.innerHTML = `<span class="tp-sentence">Chargement de la voix…</span>`;
+  document.getElementById('ttsStatus').textContent = ttsSupported
+    ? '🔊 Synthèse vocale'
+    : '⚠️ Synthèse vocale non disponible sur ce navigateur';
 
   // ── Infos ──
   document.getElementById('vpChannel').textContent = card.channel;
   document.getElementById('vpTitle').textContent   = card.title;
   document.getElementById('vpMeta').innerHTML = `
     <span>👁 ${fmtViews(card.realViews ?? card.views)}</span>
-    <span>⏱ ${fmtDuration(card.dur)}</span>
     <span>🗂 ${card.cat}</span>
     <span>${card.ago}</span>
   `;
@@ -554,7 +657,7 @@ async function openVideo(encodedId) {
   const related = getRecommended(card.id).slice(0, 20);
   renderCompactList(related, 'vpRelated');
 
-  startPlayer(card.dur);
+  startPlayer();
   await fetchWikiContent(card.title);
 }
 
@@ -582,7 +685,12 @@ async function fetchWikiContent(title) {
     const page = Object.values(pages)[0];
 
     if (page.missing !== undefined) {
-      document.getElementById('vpContent').innerHTML = `<div class="empty-state"><div class="big">📭</div><p>Article introuvable sur Wikipédia FR</p></div>`;
+      const msg = `<div class="empty-state"><div class="big">📭</div><p>Article introuvable sur Wikipédia FR</p></div>`;
+      document.getElementById('vpContent').innerHTML = msg;
+      const tp = document.getElementById('teleprompter');
+      if (tp) tp.innerHTML = `<span class="tp-sentence active">Article introuvable sur Wikipédia.</span>`;
+      playerDuration = 0;
+      updatePlayerUI();
       return;
     }
 
@@ -598,11 +706,34 @@ async function fetchWikiContent(title) {
       <br>
       <button class="wiki-link" onclick="openWikiDirect()">🌐 Lire l'article complet sur Wikipédia</button>
     `;
+
+    // ── Build teleprompter from the same extract, read aloud ──
+    const sentences = splitIntoSentences(extract);
+    if (!sentences.length) {
+      sentences.push(`${title}. Aucun résumé disponible pour cet article.`);
+    }
+    buildTeleprompter(sentences);
+    playerDuration = sentences.length; // progress is measured in sentences, not seconds
+    playerSeconds  = 0;
+    updatePlayerUI();
+
+    if (ttsSupported) {
+      ttsActive = true;
+      isPlaying = true;
+      document.getElementById('playPauseBtn').textContent = '⏸';
+      // Voices sometimes load async on first use
+      if (!ttsVoice) ttsVoice = pickFrenchVoice();
+      speakFrom(0);
+    } else {
+      highlightSentence(0);
+    }
   } catch(e) {
     document.getElementById('vpContent').innerHTML = `
       <div class="empty-state"><div class="big">😕</div>
       <p>Impossible de charger l'article.<br><small>${e.message}</small></p>
       <br><button class="wiki-link" onclick="openWikiDirect()">🌐 Ouvrir sur Wikipédia</button></div>`;
+    const tp = document.getElementById('teleprompter');
+    if (tp) tp.innerHTML = `<span class="tp-sentence active">Impossible de charger l'article.</span>`;
   }
 }
 
@@ -616,34 +747,60 @@ function goBack() {
   showPageHome();
 }
 
-// ── PLAYER ─────────────────────────────────────────────
-function startPlayer(dur) {
-  stopPlayer();
-  playerDuration = dur;
-  playerSeconds  = 0;
-  isPlaying      = true;
+// ── PLAYER (piloté par la synthèse vocale) ──────────────
+function startPlayer() {
+  // playerDuration / playerSeconds sont fixés une fois l'article chargé
+  // (voir fetchWikiContent + speakFrom). Ici on initialise juste l'UI.
+  playerSeconds = 0;
+  isPlaying     = true;
   document.getElementById('playPauseBtn').textContent = '⏸';
   updatePlayerUI();
-  playerInterval = setInterval(() => {
-    if (!isPlaying) return;
-    playerSeconds = Math.min(playerSeconds + 1, playerDuration);
-    updatePlayerUI();
-    if (playerSeconds >= playerDuration) stopPlayer();
-  }, 1000);
 }
-function stopPlayer() { clearInterval(playerInterval); playerInterval = null; }
+function stopPlayer() {
+  if (ttsSupported) window.speechSynthesis.cancel();
+  ttsActive = false;
+  isPlaying = false;
+}
 function togglePlay() {
-  isPlaying = !isPlaying;
-  document.getElementById('playPauseBtn').textContent = isPlaying ? '⏸' : '▶';
+  if (!ttsSupported) {
+    isPlaying = !isPlaying;
+    document.getElementById('playPauseBtn').textContent = isPlaying ? '⏸' : '▶';
+    return;
+  }
+  if (isPlaying) {
+    // Pause: stop speaking but keep our place
+    isPlaying = false;
+    ttsActive = false;
+    window.speechSynthesis.cancel();
+    document.getElementById('playPauseBtn').textContent = '▶';
+  } else {
+    // Resume from current sentence
+    isPlaying = true;
+    ttsActive = true;
+    document.getElementById('playPauseBtn').textContent = '⏸';
+    speakFrom(ttsIndex);
+  }
 }
 function seekProgress(e) {
-  playerSeconds = Math.floor((e.offsetX / e.currentTarget.offsetWidth) * playerDuration);
+  if (!playerDuration) return;
+  const pct = e.offsetX / e.currentTarget.offsetWidth;
+  const targetIndex = Math.floor(pct * playerDuration);
+  ttsIndex = Math.max(0, Math.min(targetIndex, playerDuration - 1));
+  playerSeconds = ttsIndex;
   updatePlayerUI();
+  highlightSentence(ttsIndex);
+  if (ttsSupported && isPlaying) {
+    ttsActive = true;
+    speakFrom(ttsIndex);
+  }
 }
 function updatePlayerUI() {
+  playerSeconds = ttsIndex;
   const pct = playerDuration ? (playerSeconds / playerDuration * 100) : 0;
   document.getElementById('progressFill').style.width = pct + '%';
-  document.getElementById('timeDisplay').textContent  = `${fmtDuration(playerSeconds)} / ${fmtDuration(playerDuration)}`;
+  document.getElementById('timeDisplay').textContent  = playerDuration
+    ? `Phrase ${Math.min(playerSeconds + 1, playerDuration)} / ${playerDuration}`
+    : '0:00 / 0:00';
 }
 function toggleLike() {
   document.getElementById('vpLikeBtn').classList.toggle('liked');
