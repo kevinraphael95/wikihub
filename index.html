@@ -107,9 +107,16 @@
 
     <button class="vp-back" onclick="goBack()">← Retour</button>
 
-    <!-- Player -->
+    <!-- Player : texte de l'intro qui défile, lu par la synthèse vocale -->
     <div class="player-area">
       <div class="player-thumb" id="playerThumb"></div>
+      <div class="player-scrim"></div>
+      <div class="teleprompter-wrap">
+        <div class="tts-status" id="ttsStatus">🔊 Synthèse vocale</div>
+        <div class="teleprompter" id="teleprompter">
+          <span class="tp-sentence active">Chargement…</span>
+        </div>
+      </div>
       <div class="player-bar">
         <div class="progress-track" onclick="seekProgress(event)">
           <div class="progress-fill" id="progressFill"></div>
