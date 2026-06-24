@@ -112,7 +112,10 @@
       <div class="player-thumb" id="playerThumb"></div>
       <div class="player-scrim"></div>
       <div class="teleprompter-wrap">
-        <div class="tts-status" id="ttsStatus">🔊 Synthèse vocale</div>
+        <div class="tts-bar">
+          <div class="tts-status" id="ttsStatus">🔊 Synthèse vocale</div>
+          <select class="tts-voice-select" id="ttsVoiceSelect" onchange="onVoicePicked(this.value)" title="Choisir une voix"></select>
+        </div>
         <div class="teleprompter" id="teleprompter">
           <span class="tp-sentence active">Chargement…</span>
         </div>
